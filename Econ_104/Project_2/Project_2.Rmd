@@ -1,0 +1,580 @@
+---
+title: "Predicting Climate Change in Delhi"
+author: "Shauna Le, Aaron Chien, Yoojin Min, Doris Wu"
+date: "2022-11-04"
+output: 
+  html_document:
+    toc: yes
+    toc_float: true
+---
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE, include=FALSE}
+rm(list = ls())
+library(car)
+library(magrittr)
+library(ggplot2)
+library(rmarkdown)
+library(tidyverse)
+library(tidyquant)
+library(forecast)
+library(tseries)
+library(knitr)
+library(stargazer)
+library(quantmod)
+library(Hmisc)
+library(skimr)
+library(SimDesign)
+library(devtools)
+library(lmtest)
+library(leaps)
+library(AER)
+library(POE5Rdata)
+library(dynlm)
+library(ivreg)
+library(gridExtra)
+library(cowplot)
+library(tseries)
+library(packHV)
+library(corrplot)
+library(vars)
+```
+
+# Introduction
+
+Hello, in this project by Shauna Le, Aaron Chien, Yoojin Min, and Doris Wu, we will be exploring the Climate Change in Delhi. We would be trying to model the temperature in Delhi and trying to predict climate change. Weather data was collected in the city of Delhi from the period of 4 years (from 2013 to 2017). Our data can be found here: **[Daily Climate time series data](https://www.kaggle.com/datasets/sumanthvrao/daily-climate-time-series-data)**. Our variables are $date$ in the MM/DD/YYYY format, $meantemp$ for the average temperature of that day from three hour intervals in Celsius, $humidity$ is the humidity levels (units are grams of water vapor per cubic meter volume of air), $wind\_speed$ is the wind speed measured in kmph, and $meanpressure$ is the average pressure in atm. Here is a glance at our data:
+
+```{r}
+climate_change <- read.csv("DailyDelhiClimateTrain.csv")
+climate_change <- as.data.frame(ts(climate_change))
+head(climate_change)
+```
+
+
+# 1. Exploratory Data Analysis
+
+## a
+```{r}
+# seeing if there are any NA values
+lapply(climate_change, function(x) {any(is.na(x))})
+```
+
+FALSE means that there are no NA values, since we used the function ```any(is.na(x))``` in which it is looking for any values that are NA and outputs TRUE if any values are NA and FALSE otherwise, since all the outputs are FALSE, we can assume they have no NA values. 
+
+## b
+
+```{r}
+par(mfrow = c(2, 2))
+hist_boxplot(climate_change$meantemp, freq = FALSE, main = "Histogram of Mean Temperature",
+             xlab = "Mean Temperature")
+lines(density(climate_change$meantemp))
+
+hist_boxplot(climate_change$humidity, freq = FALSE, main = "Histogram of Humidity Levels",
+             xlab = "Humidity Levels")
+lines(density(climate_change$humidity))
+
+hist_boxplot(climate_change$wind_speed, freq = FALSE, main = "Histogram of Wind Speed",
+             xlab = "Wind Speed")
+lines(density(climate_change$wind_speed))
+
+hist_boxplot(climate_change$meanpressure, freq = FALSE, main = "Histogram of Mean Pressure",
+             xlab = "Mean Pressure")
+lines(density(climate_change$meanpressure))
+```
+
+Here, we display a histogram and box plot for all of the variables as well as their fitted distribution line, we see that the mean temperature is very widely spread and peaking to the right, making it left skewed. The boxplot confirms the skewness of the data as the mean is toward the right and there are not outliers present. The humidity levels is somewhat centered but it does indeed have very fat tails. Looking at its boxplot, it is slightly skewed to the left and has some outliers. The wind speed is heavily skewed to the right and the boxplot shows many outliers in the data, this is problematic as this can interfere with the forecast of our data. Mean pressure is the most interesting as it is the most skewed and contains many outliers, this will be problematic in our forecast so we should remove outliers in the data 
+
+```{r}
+meantemp_bp <- climate_change %>%
+  ggplot(mapping = aes(x = meantemp)) +
+  geom_boxplot() +
+  ggtitle("Boxplot of Mean Temperature") +
+  labs(x = "Mean Temperature")
+
+humidity_bp <- climate_change %>%
+  ggplot(mapping = aes(x = humidity)) +
+  geom_boxplot() +
+  ggtitle("Boxplot of Humidity Levels") +
+  labs(x = "Humidity Levels")
+
+windspeed_bp <- climate_change %>%
+  ggplot(mapping = aes(x = wind_speed)) +
+  geom_boxplot() +
+  ggtitle("Boxplot of Wind Speed") +
+  labs(x = "Wind Speed")
+
+meanpressure_bp <- climate_change %>%
+  ggplot(mapping = aes(x = meanpressure)) +
+  geom_boxplot() +
+  ggtitle("Boxplot of Mean Pressure") +
+  labs(x = "Mean Pressure")
+
+plot_grid(meantemp_bp, humidity_bp, windspeed_bp, meanpressure_bp, ncol = 2, nrow = 2)
+```
+
+Here are the boxplots to give a closer look at the outliers, we can see the boxplot of mean pressure has many outliers and is heavily clustered, which is extremely alarming and using this data will cause our forecast to be wrong, so we should remove the outliers.
+
+```{r}
+climate_change_f <- climate_change[
+ -c(which(climate_change$meanpressure %in% boxplot.stats(climate_change$meanpressure)$out),
+    which(climate_change$wind_speed %in% boxplot.stats(climate_change$wind_speed)$out),
+    which(climate_change$humidity %in% boxplot.stats(climate_change$humidity)$out)), ]
+
+nrow(climate_change_f)
+```
+
+After removing the outliers, we still have a large dataset to work with with $1,422$ observations, much larger than $30$, so we can safely move on. 
+
+```{r}
+temp <- climate_change_f %>%
+  ggplot(mapping = aes(x = meantemp)) +
+  geom_histogram(aes(y = ..density..), binwidth = 1) +
+  geom_density(alpha= .2, fill="#FF6666") +
+  ggtitle("Histogram and Distribution of Mean Temperature") +
+  labs(x = "Mean Temperature") +
+  theme(plot.title = element_text(size = 9))
+
+humid <- climate_change_f %>%
+  ggplot(mapping = aes(x = humidity)) +
+  geom_histogram(aes(y = ..density..), binwidth = 1) +
+  geom_density(alpha= .2, fill="#FF6666") +
+  ggtitle("Histogram and Distribution of Humidity Levels") +
+  labs(x = "Humidity Levels") +
+  theme(plot.title = element_text(size = 9))
+
+wind <- climate_change_f %>%
+  ggplot(mapping = aes(x = wind_speed)) +
+  geom_histogram(aes(y = ..density..), binwidth = 1) +
+  geom_density(alpha= .2, fill="#FF6666") + 
+  ggtitle("Histogram and Distribution of Wind Speed") +
+  labs(x = "Wind Speed") +
+  theme(plot.title = element_text(size = 9))
+
+pressure <- climate_change_f %>%
+  ggplot(mapping = aes(x = meanpressure)) +
+  geom_histogram(aes(y = ..density..), binwidth = 1) +
+  geom_density(alpha= .2, fill="#FF6666") +
+  ggtitle("Histogram and Distribution of Mean Pressure") +
+  labs(x = "Mean Pressure") +
+  theme(plot.title = element_text(size = 9))
+
+plot_grid(temp, humid, wind, pressure, ncol = 2, nrow = 2)
+```
+
+Plotting the histograms for our variables after removing the outliers, we can see that they have a better spread, but skewness is still an issue and mean pressure is now bimodal, meaning that it has two peaks so there are two points where the data is clustered. This can present different problems since we want our data to follow a normal distribution (with one peak and even spread) for better forecasting and so our standard errors can be more accurate. Because of this, we decided to differentiate the data as differencing the data helped make it unimodal and follow a normal distribution. 
+
+```{r}
+corr_mroz <- climate_change_f[, (names(climate_change_f) %in% 
+                                c('meantemp', 'humidity', 'wind_speed', 'meanpressure'))]
+res <- cor(corr_mroz)
+round(res, 2)
+corrplot(res, method = 'number')
+```
+
+Even though we plan to differentiate the data, we believe it's still important to examine the correlation between the variables to see if there are any strong correlation between the variables. Examining the correlation plot between the variables, we see that $meanpressure$ and $meantemp$ has a correlation of $-0.88$, indicating that they are highly correlated and much of the variation in $meantemp$ is explained by $meanpressure$. The correlation between $meantemp$ and $humidity$ is $-0.57$ so some of the variation in $meantemp$ is explained by $humidity$. The correlation between $meantemp$ and $wind\_speed$ is only $0.35$ so they do have a weaker correlation.
+
+```{r}
+climate_change_f <- 
+  climate_change_f %>%  mutate(meantemp_df = meantemp - lag(meantemp),
+                           humidity_df = humidity - lag(humidity),
+                           windspeed_df = wind_speed - lag(wind_speed),
+                           meanpressure_df = meanpressure - lag(meanpressure))
+
+climate_change_f$meantemp_df[1] <- 0
+climate_change_f$humidity_df[1] <- 0
+climate_change_f$windspeed_df[1] <- 0
+climate_change_f$meanpressure_df[1] <- 0
+
+head(climate_change_f)
+```
+
+Now, we have 4 new variables where $meantemp\_df$ is the $meantemp$ variable differentiated once on its lag, $humidity\_df$ is the $humidity$ variable differentiated on its lag, $windspeed\_df$ is the $wind\_speed$ variable differentiated on its lag, and $meanpressure\_df$ is the $meanpressure$ differentiated on its lag. 
+
+```{r}
+temp_df <- climate_change_f %>%
+  ggplot(mapping = aes(x = meantemp_df)) +
+  geom_histogram(aes(y = ..density..), binwidth = 1) +
+  geom_density(alpha= .2, fill="#FF6666") + 
+  ggtitle("Histogram and Distribution of Mean Temperature Diff") +
+  labs(x = "Mean Temperature Diff") +
+  theme(plot.title = element_text(size = 9))
+
+humid_df <- climate_change_f %>%
+  ggplot(mapping = aes(x = humidity_df)) +
+  geom_histogram(aes(y = ..density..), binwidth = 1) +
+  geom_density(alpha= .2, fill="#FF6666") +
+  ggtitle("Histogram and Distribution of Humidity Levels Diff") +
+  labs(x = "Humidity Levels Diff") +
+  theme(plot.title = element_text(size = 9))
+
+wind_df <- climate_change_f %>%
+  ggplot(mapping = aes(x = windspeed_df)) +
+  geom_histogram(aes(y = ..density..), binwidth = 1) +
+  geom_density(alpha= .2, fill="#FF6666") + 
+  ggtitle("Histogram and Distribution of Wind Speed Diff") +
+  labs(x = "Wind Speed Diff") +
+  theme(plot.title = element_text(size = 9))
+
+pressure_df <- climate_change_f %>%
+  ggplot(mapping = aes(x = meanpressure_df)) +
+  geom_histogram(aes(y = ..density..), binwidth = 1) +
+  geom_density(alpha= .2, fill="#FF6666") +
+  ggtitle("Histogram and Distribution of Mean Pressure Diff") +
+  labs(x = "Mean Pressure Diff") +
+  theme(plot.title = element_text(size = 9))
+
+plot_grid(temp_df, humid_df, wind_df, pressure_df, ncol = 2, nrow = 2)
+```
+
+These are the histograms of our dataset after we took out the outliers and differentiated them as indicated by "Diff" in the labels:
+
+  * The probability histogram for the mean temperature after differentiation seems to have normality because it is bell-shaped, unimodal, and pretty symmetric around the mean, except for a longer tail to the left. This unimodal graph allows our forecast to be easier to graph.
+  * The probability histogram for humidity levels after differentiation seems to have normality because it is bell-shaped, unimodal, and pretty symmetric around the mean, except for a longer tail to the right. This unimodal graph allows our forecast to be easier to graph.
+  * The probability histogram for the wind speed after differentiation has normality because although it is bell-shaped, unimodal, and symmetric around the mean. This histogram with normality allows our forecast to be easier to graph. 
+  * The probability histogram for the mean pressure has normality because it is unimodal, bell-shaped, and pretty symmetric around the mean. This histogram with normality allows our forecast to be easier to graph. We removed one very high outlier to the right, and removing it created a better representation of our data. 
+
+```{r}
+corr_mroz_diff <- climate_change_f[, (names(climate_change_f) %in% 
+                                c('meantemp_df', 'humidity_df', 
+                                  'windspeed_df', 'meanpressure_df'))]
+res_diff <- cor(corr_mroz_diff)
+round(res_diff, 2)
+corrplot(res_diff, method = 'number')
+```
+
+Examining the correlation plot between the differentiated data, we see that $humidity\_df$ and $meantemp\_df$ has a correlation of $-0.66$, indicating that they are highly correlated and much of the variation in $meantemp\_df$ is explained by $humidity\_df$. The correlation between the other variables are lighter in color, indicating a weaker correlation. Comparing this to the non-differentiated data, $humidity\_df$ is now a stronger candidate for correlation. 
+
+```{r}
+lapply(climate_change_f, summary)[-1]
+```
+
+These are the 5-number summary data for each of the variables:  
+
+  * For the average temperature’s 5-number summary, the minimum is $6$ degrees celsius, 1st quartile value is $18.75$ degrees celsius, the median is $27.62$ degrees celsius, the mean is $25.42$ degrees celsius, the 3rd quartile value is $31.25$ degrees celsius, and the maximum is $38.71$ degrees celsius. Since our **median is higher than our mean, our data for mean temperature would be skewed to the left**, with a longer tail of low scores pulling the mean down more than the median.
+  * For humidity’s 5-number summary, the minimum is $18.47$ grams per cubic meter, 1st quartile value is $50.70$ grams per cubic meter, the median is $62.81$ grams per cubic meter, the mean is $61.01$ grams per cubic meter, the 3rd quartile value is $72.38$ grams per cubic meter, and the maximum is $100$ grams per cubic meter. Since our **median is higher than our mean, our data for humidity would be skewed to the left**, with a longer tail of low scores pulling the mean down more than the median.
+  * For wind speed’s 5-number summary, the minimum is $0$ kmph, 1st quartile value is $3.437$ kmph, the median is $6.025$ kmph, the mean is $6.460$ kmph, the 3rd quartile value is $8.921$ kmph, and the maximum is $17.908$ kmph. Since our **median is slightly lower than our mean, our data for wind speed would be slightly skewed to the right**, with a longer tail of high scores pulling the mean up more than the median.
+  * For mean pressure’s 5-number summary, the minimum is $991.4$ atm, 1st quartile value is $1001.6$ atm, the median is $1008.7$ atm, the mean is $1008.3$ atm, the 3rd quartile value is $1014.9$ atm, and the maximum is $1023$ atm. Since our **median is slightly higher than our mean, our data for mean pressure would be slightly skewed to the left**, with a longer tail of low scores pulling the mean down more than the median.
+  
+We also made the 5-number summary data for each of the variables after we differentiated them:
+
+  * For the average temperature’s differentiated 5-number summary, we would set our mean to $0$. So our minimum is $-10.6250$ degrees celsius, 1st quartile value is $-0.8750$ degrees celsius, the median is $0.0625$ degrees celsius, the mean is $0$ degrees celsius, the 3rd quartile value is $1$ degrees celsius, and the maximum is $6.6667$ degrees celsius. Since our **median is higher than our mean, our differentiated data for mean temperature would be skewed to the left**, with a longer tail of low scores pulling the mean down more than the median.
+  * For humidity’s differentiated 5-number summary, we would set our mean to $0$. So our minimum is $-37.3333$ grams per cubic meter, 1st quartile value is $-4.8089$ grams per cubic meter, the median is $-0.25$ grams per cubic meter, the mean is $0.0109$ grams per cubic meter, the 3rd quartile value is $4.0870$ grams per cubic meter, and the maximum is $47.25$ grams per cubic meter. Since our **median is now lower than our mean, our differentiated data for humidity would be slightly skewed to the right**, with a longer tail of high scores pulling the mean up more than the median. But they are very close, indicating symmetry. 
+  * For wind speed’s differentiated 5-number summary, we would set our mean to $0$. So our minimum is $-16.2$ kmph, 1st quartile value is $-2.31$ kmph, the median is $-0.05$ kmph, the mean is $0$ kmph, the 3rd quartile value is $2.31$ kmph, and the maximum is $16.21$ kmph. Since our **median is slightly lower than our mean, our differentiated data for wind speed would be slightly skewed to the right**, with a longer tail of high scores pulling the mean up more than the median.
+  * For mean pressure’s differentiated 5-number summary, we would set our mean to $0$. So our minimum is $-7.58$ atm, 1st quartile value is $-1.11$ atm, the median is $0$ atm, the mean is around $0$ atm, the 3rd quartile value is $1$ atm, and the maximum is $7.75$ atm. **Since our median is equal to our mean, our differentiated data for mean pressure would be symmetric.**
+
+# 2. Data pre-processing
+
+## a
+
+Before diving into our differenced data, we can examine the variables to see if un-differenced variables are stationary are not in order to see if they can be used as a proper model to forecast change in mean temperature. 
+
+For the structure of the time series, the lag order here is the number of lags used in the regression and the code is `trunc((length(x)-1)^(1/3))` which corresponds to the suggested upper bound on the rate at which the number of lags should be made to grow with the sample size. It is basically just the number of lags used to test if it's stationary.
+
+The observations appear to follow each other. We are using seasonal data, so the observations follow a trend to go up and down. The variance for all of these variables does not seem to be increasing; it looks pretty constant. Also, all of our graphs have seasonality. The existence of stationary for each of our variables is indicated below: 
+
+```{r}
+ggtsdisplay(climate_change_f$meantemp, main = "TS Display of Mean Temperature")
+```
+
+Looking at the `ggtsdisplay` of mean temperature, we can see that the time display at the top is reverberating, but it doesn’t seem to be reverberating enough as the mean can change if you take different subsets of the data. The data also shows that this is cyclical as the rise and fall trend of the data is clear and they always seem to go in the same places. Mean temperature also seems to follow an $AR(4)$ model as the PACF of the model shows significance at lag $4$. The ACF is also declining, but it is declining very slowly, indicating that it is non-stationary. 
+
+```{r}
+ggtsdisplay(climate_change_f$humidity, main = "TS Display of Humidity Levels")
+```
+
+For the `ggtsdisplay` of humidity, we see that this follows an $AR(4)$ model as the ACF graph shows declining lags, and the PACF graph shows significance at lag $4$. The time display at the top seems to be reverberating, and there seems to be a pattern of large and small ups and downs. Also, the variance does not seem to be constant and not increasing. Although it is reverberating, it is not reverberating enough to indicate that it is stationary. Moreover, the ACF graph is slowly declining, indicating that humidity may be non-stationary.
+
+```{r}
+ggtsdisplay(climate_change_f$wind_speed, main = "TS Display of Wind Speed")
+```
+
+We used the `ggtsdisplay` method to generate ACF and PACF plots for mean temperature, wind speed, mean pressure, and humidity. The time series for wind speed displays seasonality as we see variations occur at specific intervals. The oscillations seem too pronounced to describe the data as mean-riveting. Wind speed seems to follow an $AR(18)$ model since the lags tail off in the ACF plot and cut off at lag $18$. Furthermore, the ACF plot for wind speed shows a sharp decline early on, however, it stops decaying soon after. With this in mind, wind speed appears to be non-stationary.
+
+```{r}
+ggtsdisplay(climate_change_f$meanpressure, main = "TS Display of Mean Pressure")
+```
+
+Looking at the `ggtsdisplay` for mean pressure, we see that this follows an $AR(2)$ model as the ACF graph shows declining lags and the PACF shows significance at lag $2$. The time display at the top is also reverberating, and the variance does seem to be constant, but we do think that it’s not reverberating enough to indicate that it is stationary. However, the ACF graph is slowly declining, indicating that mean pressure may be non-stationary.
+
+The ACF graphs are taking a significant amount of time to decay, but they all do indeed look like AR models, moving forward, I believe using the differentiated series would be best. All variables have their ACF that is taking a long time to decay, so I believe approaching this and using the differentiated series would help immensely. 
+
+Here is the `adf.test` for each of the variables to test for stationary. 
+
+```{r}
+adf.test(climate_change_f$meantemp)
+adf.test(climate_change_f$humidity)
+adf.test(climate_change_f$wind_speed)
+adf.test(climate_change_f$meanpressure)
+```
+
+Since the p value for $meantemp$, $humidity$, and $meanpressure$ are all above 0.05, we fail to reject the null that it is non-stationary, so there is significance that the variable is non-stationary. The variable $wind\_speed$ is indicated to be stationary, but the ACF graph of it is slowly decaying, which is alarming to us so we decided to continue with the differentiated data. 
+
+```{r}
+ndiffs(climate_change_f$meantemp)
+ndiffs(climate_change_f$humidity)
+ndiffs(climate_change_f$wind_speed)
+ndiffs(climate_change_f$meanpressure)
+```
+
+By using the `ndiffs` function, we see that $meantemp$ should be differentiated once in order to make it stationary but everything else is 0 which is still alarming as the ACF of $humidity$, and $meanpressure$ indicates non-stationary and the `adf.test()` also indicates that they are non-stationary, so there should be at least some differencing to make it stationary. 
+
+```{r}
+ndiffs(climate_change_f$meantemp_df)
+ndiffs(climate_change_f$humidity_df)
+ndiffs(climate_change_f$windspeed_df)
+ndiffs(climate_change_f$meanpressure_df)
+```
+
+If we look at the differentiated data, it indicates that no differencing is needed, this may be because we already differentiated it once and now they should be stationary. We can use the `adf.test` to examine if they are stationary.
+
+```{r}
+adf.test(climate_change_f$meantemp_df)
+adf.test(climate_change_f$humidity_df)
+adf.test(climate_change_f$windspeed_df)
+adf.test(climate_change_f$meanpressure_df)
+```
+
+Since now all the p values are lower than $0.05$ now, we reject the null that it is non-stationary.
+
+```{r}
+ggtsdisplay(climate_change_f$meantemp_df, main = "TS display of Mean Temp Differences")
+```
+
+Examining the Mean Temp after differencing shows that for the time display, there doesn’t seem to be a trend and the mean and variance are quite constant. It also follows more of a MA trend as the PACF is gradually declining and the ACF looks like an AR’s PACF model. If this was the case, this would be $MA(19)$ as the 19th lag in the ACF model is the furthest and is also significant.
+
+```{r}
+ggtsdisplay(climate_change_f$humidity_df, main = "TS display of Humidity Differences")
+```
+
+After differencing, the TS display of humidity differences seems to reverberate much more than before differencing, and the variance seems not to change widely than before. The graph overall does not have seasonal variations nor trends, thus indicating stationary. 
+Also, for the ACF model after differencing, a $MA(29)$ model appears to be a better fit for humidity than an $AR(13)$ model since there is a drastic decline in the lags in the PACF graph while the ACF graph cuts off after lag $29$. Also, the PACF graph is gradually declining while the ACF graph looks like an AR’s PACF model. 
+
+```{r}
+ggtsdisplay(climate_change_f$windspeed_df, main = "TS display of Wind Speed Differences")
+```
+
+Looking at the `ggtsdisplay` for wind speed after first-differencing it, the TS display appears to be mean reverting as there are no longer any seasonal variations or trends, indicating stationary. After differencing wind speed, a MA model appears to be a better fit for wind speed than an $AR(18)$ model since we see a geometric decline in the lags in the PACF plot, while the ACF plot cuts off after lag $18$.
+
+```{r}
+ggtsdisplay(climate_change_f$meanpressure_df, main = "TS display of Mean Pressure Differences")
+```
+
+Examining the `ggtsdisplay` for the mean pressure differences, we see that the time display is now more reverberating and that the mean and variance do not seem to change widely. There seems to be more trend in the time display which indicates stationary. Examining the ACF and PACF, this mean pressure differences seems to resemble a MA model instead as the PACF has gradually declining lags and the ACF seems to look like the PACF of an AR model. If this was a MA model, then it would be $MA(2)$. 
+
+# 3. Feature Generation, Model Testing and Forecasting
+
+## a
+
+Base on the tsdisplay of the $meantemp\_df$ variable, we shall create three different AR models of it. Base on the PACF, we saw that lags $5$, $9$, and $19$ were all significant so we shall be building $AR(5)$, $AR(9)$, and $AR(19)$ where the $meantemp\_df$ is regressed against itself. 
+
+```{r}
+ar_5 <- dynlm(meantemp_df ~ lag(meantemp_df, 1) + lag(meantemp_df, 2) + lag(meantemp_df, 3) +
+              lag(meantemp_df, 4) + lag(meantemp_df, 5), data = climate_change_f)
+
+ar_9 <- dynlm(meantemp_df ~ lag(meantemp_df, 1) + lag(meantemp_df, 2) + lag(meantemp_df, 3) +
+              lag(meantemp_df, 4) + lag(meantemp_df, 5) + lag(meantemp_df, 6) +
+              lag(meantemp_df, 7) + lag(meantemp_df, 8) + lag(meantemp_df, 9),
+              data = climate_change_f)
+
+ar_19 <- dynlm(meantemp_df ~ lag(meantemp_df, 1) + lag(meantemp_df, 2) + lag(meantemp_df, 3) +
+              lag(meantemp_df, 4) + lag(meantemp_df, 5) + lag(meantemp_df, 6) + 
+              lag(meantemp_df, 7) + lag(meantemp_df, 8) + lag(meantemp_df, 9) +
+              lag(meantemp_df, 10) + lag(meantemp_df, 11) + lag(meantemp_df, 12) +
+              lag(meantemp_df, 13) + lag(meantemp_df, 14) + lag(meantemp_df, 15) +
+              lag(meantemp_df, 16) + lag(meantemp_df, 17) + lag(meantemp_df, 18) + 
+              lag(meantemp_df, 19), data = climate_change_f)
+```
+
+```{r}
+model_score <- data.frame("Model" = paste("ar", c(5, 9, 19), sep = ""),
+                          "BIC" = c(BIC(ar_5), BIC(ar_9), BIC(ar_19)),
+                          "AIC" = c(AIC(ar_5), AIC(ar_9), AIC(ar_19)))
+
+sorted_model <- model_score[order(model_score$BIC), ]
+sorted_model
+```
+
+The BIC for ar9, or $AR(9)$ is the lowest and since the BIC penalizes the model more for more variables, we believe following the BIC would be better. The AIC is still a good measure of the model, but our model for $AR(9)$ has a AIC score of $5381.868$, which is the second smallest out of the tree, $50$ off the smallest $AIC$ and $18$ away from the biggest AIC. However, the BIC for ar19, $AR(19)$ and ar5, $AR(5)$ is extremely close together so that is a warning that both of these models similarly fit the data. 
+
+```{r}
+summary(ar_9)
+```
+
+Our $AR(9)$ model would be $AR(9) : meantemp\_df_{t} = 0.002859 + \\ -0.220341meantemp\_df_{t-1} + -0.175410meantemp\_df_{t-2} + \\ -0.212424meantemp\_df_{t-3} + -0.111346meantemp\_df_{t-4} + \\ -0.096996meantemp\_df_{t-5} + -0.067893meantemp\_df_{t-6} + \\ -0.064001meantemp\_df_{t-7} + -0.030701meantemp\_df_{t-8} + \\ -0.056283meantemp\_df_{t-9}$
+
+What this model is telling us is that it is predicting the change in mean temperature at time $t$ base on $9$ previous lags. The immediate multiplier is $-0.220341$ while the total effect at time $q$ is $\sum_{s=0}^{q}B_{s}$ where $B$ represents the coefficients of the $AR(9)$ model excluding the intercept, $0.002859$. Examining the model further, the intercept has an extremely large p value that is almost close to $1$, indicating that the intercept is very not significant. Lags $6$, $7$, and $9$ also show moderate significance as it's significant at the $1%$ level. Lag $8$, however, is shown not to be significant enough. The $R^{2}$ is also very low, around $0.08197$ so much of the variation in $meantemp\_df$ is not explained by itself. Interpreting the coefficients, the intercept is $0.002859$, which does not mean the $meantemp\_df$ start at $0.002859$, but rather it is used as a baseline for the model to predict future forecasts. We can estimate the change at certain lags using these coefficients, for example, at $t-1$, the change in $meantemp\_df$ is $-0.220341$ with respect to $meantemp\_df_{t-1}$, which means for every unit of $meantemp\_df_{t-1}$, there is a change of $-0.220341$ in $meantemp\_df$.
+
+## b
+
+```{r}
+acf(ar_9$residuals, main = "Mean Temperature AR(9) model serial correlation of errors")
+```
+
+Examining the residuals to see if any errors show any sign of serial correlation, we see that in the correlogram, they seem to show little significance. Lag $19$ and $29$ are a bit alarming as they reach over the interval where it is statistically significance that serial correlation is present, but since they only reach over it by such a little amount, we decided to ignore them.
+
+## c 
+
+In order to create an ARDL model, we need to choose one of the three predictor variables: $humidity\_df$, $windspeed\_df$, and $meanpressure\_df$. In order to choose the best predictor variables, we shall use the Boruta algorithmn, VIF model, and Mallows' CP to choose for feature selection.
+
+```{r}
+library(Boruta)
+bor_res <- Boruta(meantemp_df ~., data = climate_change_f[, 6:9], doTrace = 1)
+attStats(bor_res)
+```
+
+To measure the importance of the variables we would choose for the ARDL model, we first used the boruta algorithm in which it duplicates the dataset and shuffles each column and uses individual decision trees to spit out a class prediction and the higher the votes (or score), the more important the prediction. Here, we see that $humidity\_df$ has the highest prediction with a score of $103$ and $meanpressure\_df$ with a score of $24$ and $windspeed\_df$ at $6$.
+
+```{r}
+vif_model <- dynlm(meantemp_df ~ humidity_df + windspeed_df + meanpressure_df, data = climate_change_f[, 6:9])
+vif(vif_model)
+```
+
+The VIF model here estimates for collinearity between the independent and the explanatory variable and looks for multicollinearity. The rule of thumb is that as long as the score of below $5$, the variable does not shown signs of multicollinearity and is acceptable. So since all of the potential predicator variables are very much below $5$, they are good predictors. 
+
+```{r}
+ss <- regsubsets(meantemp_df ~ humidity_df + windspeed_df + meanpressure_df, method = c("exhaustive"), nbest = 3, data = climate_change_f)
+
+subsets(ss, statistic = "cp", legend = F, main = "Mallows CP")
+```
+
+We decided to use Mallow's CP in order to find which predictor is best used to explain the explanatory variable. It basically creates a full model and compares it with a smaller model with a certain number of parameters and determines how much error is left unexplained by the partial model. The rule of thumb is that the smaller the score, the better the fit. Here, we see $humidity\_df$ is yet again the best fit, so our ARDL model would be using the $humidity\_df$ variable. We also want to point out that h-w-m, which means all three predictors, is lower than just h, so a VAR model containing all three predictors may better fit the forecast.
+
+```{r}
+demo1 <- dynlm(meantemp_df ~ lag(meantemp_df, 1) + lag(meantemp_df, 2) + 
+                      lag(meantemp_df, 3) + lag(meantemp_df, 4) + lag(meantemp_df, 5) +
+                      lag(meantemp_df, 6) + lag(meantemp_df, 7) + lag(meantemp_df, 8) +
+                      lag(meantemp_df, 9) + humidity_df + lag(humidity, 1) + 
+                      lag(humidity_df, 2) + lag(humidity_df, 3) + lag(humidity_df, 4) +
+                      lag(humidity_df, 5), data = climate_change_f)
+
+summary(demo1)
+```
+
+In our first model, we decided to go with an $ARDL(9, 5)$ model since the $AR(9)$ model was the best fit for $meantemp\_df$ and the PACF for the $humidity\_df$ model has lags $5$, $10$, and $13$ that are significant. Observing our first model, we see that $meantemp\_df$ at lag $7$ is where it stops being significant and for $humidity\_df$, it stops at lag $5$. We should re-estimate this ARDL with $ARDL(6, 4)$.
+
+```{r}
+demo2 <- dynlm(meantemp_df ~ lag(meantemp_df, 1) + lag(meantemp_df, 2) + 
+                      lag(meantemp_df, 3) + lag(meantemp_df, 4) + lag(meantemp_df, 5) +
+                      lag(meantemp_df, 6) + humidity_df + lag(humidity, 1) + 
+                      lag(humidity_df, 2) + lag(humidity_df, 3) + lag(humidity_df, 4), 
+                      data = climate_change_f)
+
+summary(demo2)
+```
+
+Here, we see that the lag at $6$ for $humididty\_df$ is only significant at the $10$% level, so we re-estimate this with $ARDL(5, 4)$.
+
+```{r}
+mean_humid <- dynlm(meantemp_df ~ lag(meantemp_df, 1) + lag(meantemp_df, 2) + 
+                      lag(meantemp_df, 3) + lag(meantemp_df, 4) + lag(meantemp_df, 5) +
+                      humidity_df + lag(humidity, 1) + lag(humidity_df, 2) + 
+                      lag(humidity_df, 3) + lag(humidity_df, 4), data = climate_change_f)
+
+summary(mean_humid)
+```
+
+We see that all variables are relatively significant, so $ARDL(5, 4)$ is our best fit.
+
+Our $ARDL(5, 4)$ model is: $meantemp\_df_{t} = 0.286003 + \\ -0.081782meantemp\_df_{t-1} + -0.178333meantemp\_df_{t-2} + \\ -0.183980meantemp\_df_{t-3} + -0.074193meantemp\_df_{t-4} + \\ -0.049862meantemp\_df_{t-5} + -0.136723humidity\_df_{t} + \\  -0.004584humidity\_df_{t-1} + -0.028610humidity\_df_{t-2} + \\ -0.028125humidity\_df_{t-3} + -0.014755humidity\_df_{t-4}$ 
+
+which shows that the change in mean temperature is a model of past values of $meantemp\_df$ and $humidity\_df$. 
+
+The impact multiplier, $B_{0}$ would be $-0.136723$ and the first delay multiplier, $B_{1}$ would be $-0.00458 + -0.136723 \times -0.081782$ and each multiplier after would be $B_{j} = B_{j-1} \times -0.081782$. The $R^{2}$ is also $0.4752$, which isn't very high but it does hold more significant coefficients so we shall continue with this model. Interpreting the coefficients, the intercept is $0.286003$ which does not mean that the $meantemp\_df$ starts at $0.286003$, it's just the way the equation is forecasted. We see that for the coefficients, most of them are negative implying a negative relationship and we can also estimate the change at certain lags. For example, at lag $t-1$, the change in $meantemp\_df$ would be $-0.081782$ for every unit of $meantemp\_df_{t-1}$ and $-0.004584$ with for every unit of $humidity\_df_{t-1}$.
+
+```{r}
+acf(mean_humid$residuals, main = "ACF of the residuals of ARDL(5, 4)")
+```
+
+We see that there are barely any significant correlations in the errors for our model and although lag 11 does show that there is correlation there, we decided to ignore it since it is at a long lag and is barely passes the test of serial error correlation.
+
+# 4. Summary
+
+```{r}
+AIC(ar_9)
+BIC(ar_9)
+plot(fitted(ar_9), resid(ar_9), main = "Residual Plot for AR(9) Mean Temp Difference", 
+     xlab = "Mean Temp Diff Fitted Values", ylab = "Residuals ")
+abline(a = 0, b = 0, col = "red")
+```
+
+Examining the residual plot for the $AR(9)$ model, we see there there is no pattern, but there is a lot of noise here, which is a good sign it fits relatively well. The residuals are not increasing, meaning that there is no heteroskedasticity present.  
+
+```{r}
+AIC(mean_humid)
+BIC(mean_humid)
+plot(fitted(mean_humid), resid(mean_humid), main = "Residual Plot for ARDL(5, 4) Mean Temp Diff and Humidity Level Diff", xlab = "fitted values", ylab = "residuals")
+abline(a = 0, b = 0, col = "red")
+```
+
+Examining the residual plot for the $ARDL(5, 4)$ model, we also see that there there is no pattern and there is a lot of white noise, which is a good sign it fits relatively well. There are also no patterns in the residuals as well, meaning that there is no heteroskedasticity present.
+
+Comparing our AIC and BIC models, we see that the AIC score for our $AR(9)$ $meantemp\_df$ is `r AIC(ar_9)` and the BIC is `r BIC(ar_9)`. As for our $ARDL(5, 4)$ with $meantemp\_df$ and $humidity\_df$, the AIC is `r AIC(mean_humid)` and the BIC is `r BIC(mean_humid)`. Since both AIC and BIC score for $ARDL(5, 4)$ is lower than the $AR(9)$ model, we can say that the $ARDL(5, 4)$ is a better fit. 
+
+```{r}
+test <- read.csv("DailyDelhiClimateTest.csv")
+test$meantemp_df <- c(0, diff(test$meantemp, lag = 1))
+test$humidity_df <- c(0, diff(test$humidity, lag = 1))
+predicted_values <- function(a, b){
+  results <- 
+    0.286003 + -0.081782*lag(a, 1) + -0.178333*lag(a, 2) + -0.183980*lag(a, 3) +
+    -0.074193*lag(a, 4) + -0.049862*lag(a, 5) + -0.136723*b + -0.004584*lag(b, 1) +
+    -0.028610*lag(b, 2) + -0.028125*lag(b, 3) + -0.014755*lag(b, 4)
+  results
+}
+
+test$model_results <- predicted_values(test$meantemp_df, test$humidity_df)
+
+test_results <- test[, c(6, 8)][-(1:5), ]
+test_results$t <- 1:nrow(test_results)
+```
+
+```{r}
+test_results %>%
+  ggplot() +
+  geom_line(aes(x = t, y = meantemp_df, color = "Real Mean Temperature Difference")) +
+  geom_line(aes(x = t, y = model_results, color = "Estimated Mean Temperature Difference")) +
+  xlab("Time") +
+  ylab("Mean Temperature Difference") + 
+  scale_color_manual(name = "Mean Temperature Difference",
+                     breaks=c("Real Mean Temperature Difference", 
+                              "Estimated Mean Temperature Difference"),
+                     values=c("Real Mean Temperature Difference" = "red", 
+                              "Estimated Mean Temperature Difference" = "blue"))
+```
+
+Results of the model compared with the actual model.
+
+# 5. Improvements
+
+In observing what we can do to improve the model, we are suggesting that an MA model for the differentiated data would help immensely as observing the PACF and ACF graphs in the `ggtsdisplay`, we saw that it followed the pattern of a MA model. The ACF had sharp cut-off and the PACF should have a gradual decay. 
+
+We also observed in the Mallows' CP that `h-w-m`, which stands for $humidity\_df$, $windspeed\_df$, and $meanpressure\_df$, had the lowest score so we can see that a VAR(p) model can also work and may fit the data better. 
+
+```{r}
+VARselect(climate_change_f[, 6:9], lag.max = 12)
+```
+
+Using a VAR model, we see that $VAR(11)$ has the lowest AIC score at $7.652709$, so a $VAR(11)$ would be best. 
+
+```{r}
+VAR_11 <- VAR(climate_change_f[, 6:9], p = 11)
+VAR_11summ <- summary(VAR_11)
+VAR_11summ$varresult$meantemp_df
+```
+
+Looking at the $VAR(11)$ model, we can see the summary statistics but the $R^{2}$ is relatively low at $0.1064$ and many of the coefficients is insignificant. We would have to do more testing and modeling in order to see which model is truly the best model.
+
+But first, we test for reverse causality, where our explanatory variable is actually caused by our dependent variable. 
+
+```{r}
+grangertest(climate_change_f$humidity_df ~ climate_change_f$meantemp_df, order = 11)
+```
+
+Here, we reject the null that $meantemp\_df$ does not granger-cause $humidity\_df$ since the p value is $0.03305$, much lower than the significant level at $0.05$, so it is significant that $meantemp\_df$ explains $humidity\_df$ so perhaps a model trying to predict $meantemp\_df$ from $humidity\_df$ may not be ideal, but rather $humidity\_df$ is better predicted by $meantemp\_df$.
+
+```{r}
+grangertest(climate_change_f$meantemp_df ~ climate_change_f$humidity_df, order = 11)
+```
+Since our p value is $0.1712$, which is above the significance level of $0.05$, we fail to reject the null $humidity\_df$ does not granger-cause $meantemp\_df$. Therefore, our model could be improved by predicting $humidity\_df$ from $meantemp\_df$ and use that model to reverse calculate the average temperature change. 
+
+Base on all of our resultse, we believe we can safely say that our $ARDL(5, 4)$ regressed on the $meantemp\_df$ lags and the $humidity\_df$ lags may not be the best model in predicting the difference in $meantemp$ in the next period and we may want to either consider a MA or $VAR(11)$ model. We also need to test a reverse casuality model where $humidity\_df$ is predicted from $meantemp\_df$. 
+
