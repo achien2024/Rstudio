@@ -1,0 +1,549 @@
+---
+title: "Data Project Foundations"
+author: "Aaron Chien"
+date: "6/16/2022"
+output:
+  html_document:
+    toc: yes
+    toc_float: true
+    theme: united
+    highlight: tang
+  pdf_document: default
+---
+## Introduction
+
+```{r, echo = FALSE, warnings = FALSE, message = FALSE}
+library(tidyverse)
+```
+
+Hello, in this report created by Aaron Chien, finance chair of 2021-2022, you will find a summary of financial data collected from the venmo account over the course of the year. You will also find reccomendations on which fundraisers worked the best and which ones the new admin should be more cautious of. 
+
+To start off, I created a new table based off the venmo data and had to fix the descriptions to better represent the data. For example, in the category of "team dues", this includes all the dues collected from the teams as well as reimbursements for their stipend, photoshoots, and banquet. Each category is like this. The "reimbursement" category are the times where finance team paid someone back money for a certain reason that doesn't fit for the other category. Everything that deals with merch is separated into their own category. Speaking of merch, merch that deals with shirts and gear have Sparktrendz payments accounted for already and the "Sparktrendz Payment" category was a payment to Sparktrendz, but I couldn't find which shirt it belonged to. I suspect that it was for the beginning year clothes and merch but I have yet to find an answer.
+
+This is an example of what the table data shows and what this report will be working with.
+
+<details>
+  <summary>Click for Table</summary>
+```{r Beggining, echo = FALSE}
+load("Project.Foundations")
+
+knitr::kable(head(foundations_venmo[, c("From", "To", "Description", "Category", "Amount")]))
+```
+</details> 
+
+***
+
+## Basic Summary of Data
+
+This table gives you the basic summary for each description, note the max, min, sum, and mean. The mean overall gives us the idea if we received a positive or negative increase in finance while the sum gives us the total amount of money earned from each description. The quantiles can also help in estimating profits as we use the first quantile to show that 25% of the data falls here or below and the third quantile shows that 75% of the data falls here or below. This can be used to gauge revenue or losses.
+
+Each description is obvious while some is not. Here is a summary:
+
+1. 85 Degrees Fundraiser is the fundraiser from 85 degrees bruinwalk
+
+2. Banquet Fees are all the fees from banquet including catering, decorations, lship gifts, and printing.
+
+3. CAMP FC GEAR includes all the payments for the CAMP FC GEAR and the payment to Sparktrendz for the CAMP FC GEAR.
+
+4. Foundations Shirt Merch includes all sales from selling shirt merch and the payment to Sparktrendz for the Foundations shirt merch.
+
+5. Foundations Sticker Merch includes all sales from selling stickers.
+
+6. Foundations Tote Merch includes all sales from selling tote bags. 
+
+7. Krispy Kreme Fundraiser includes the fundraiser from selling Krispy Kreme doughnuts on bruinwalk.
+
+8. LSHIP Dare Square includes the fundraiser of dare square from fall quarter.
+
+9. LSHIP Jackets includes all the fees collected for the lship jacket and the payment for the lship jackets.
+
+10. Pie Fundraiser includes all the fundraising from the pies for teams as well as the costs and reimbursements for them.
+
+11. Reimbursement includes all reimbursements that does not fit into any description, mainly reimbursements from auditions, pre-auds, and showcase as well as the payment for the choregraphers from Wintensive.
+
+12. Rose Fundraiser includes all the fundraising from selling roses.
+
+13. Sparktrendz Payment includes all the payment towards Sparktrendz that does not fit into the other descriptions.
+
+14. Anything that includes `dues` except for `Retreat Dues` includes all the fees collected from the teams, photoshoot reimbursements, the `$30` stipend for each team, and team gear.
+
+15. Retreat Dues includes dues collected from lship for retreat as well as any reimbursement from retreat.
+
+16. Teaspoon Fundraiser includes all the fundraising from teaspoon as well as reimbursements for it.
+
+17. Valentines Gram Fundraiser includes all the fundraisig from Valentines Gram as well as the material payments for it.
+
+18. Wintensive Merch includes all the sales from wintensive as well as the payment towards Sparktrendz for the gear.
+
+19. Wintensive Choregrapher includes all the payments made to the wintensive choregraphers. 
+
+<details>
+  <summary>Click for Table</summary>
+```{r description summary, echo = FALSE}
+summary_descr <- tapply(foundations_venmo$Amount, foundations_venmo$Description, summary)
+
+summary_descr <- lapply(X = summary_descr, FUN = function(X) {round(X, 2)})
+
+sum_descr <- tapply(foundations_venmo$Amount, foundations_venmo$Description, sum)
+
+foundations_summary <- list2DF(summary_descr)
+foundations_summary[7, ] <- unname(sum_descr)
+
+row.names(foundations_summary) <- c(names(summary_descr[[1]]), "sum")
+
+knitr::kable(foundations_summary)
+```
+</details>
+
+The data is a bit big, so let's condense the data into more into seprate categories: fundraiser, merch, lship and team dues, and payments.
+
+* Fundraiser now includes: 85 Degrees Fundraiser, Krispy Kreme Fundraiser, LSHIP Dare Square, Pie Fundraiser, Rose Fundraiser, Teaspoon Fundraiser, and Valentines Gram Fundraiser
+
+* Merch now includes: Foundations Shirt Merch, Foundations Sticker Merch, Foundations Tote Merch, and Wintensive Merch
+
+* LSHIP & Team Dues now includes: CAMP FC GEAR, LSHIP Jackets, Retreat Dues, and Team Dues
+
+* Payments now includes: Banquet Fees, Reimbursement, and Sparktrendz Payment
+
+* Wintensive Payments includes only the payments to the wintensive choregraphers
+
+<details>
+  <summary>Click for Table</summary>
+```{r category summary, echo = FALSE}
+foundations_venmo$Category[foundations_venmo$Category == "Merch Sales"] <- "Merch"
+foundations_venmo$Category <- as.factor(foundations_venmo$Category)
+
+summary_cat <- tapply(foundations_venmo$Amount, foundations_venmo$Category, summary)
+summary_cat <- lapply(X = summary_cat, FUN = function(X) {round(X, 2)})
+
+sum_cat <- tapply(foundations_venmo$Amount, foundations_venmo$Category, sum)
+
+foundations_catsumm <- list2DF(summary_cat)
+foundations_catsumm[7, ] <- unname(sum_cat)
+
+row.names(foundations_catsumm) <- c(names(summary_cat[[1]]), "sum")
+
+knitr::kable(foundations_catsumm)
+```
+</details>
+
+Now that we have gotten all the data sorted and neatly formatted, let's look at how much money Foundations has earned this year. Please not that as of right now, all the checks we have received from funding apps and venmo bank transfers are located in the bank account and I have no access to it (director of internal relations will know). We are also waiting on three checks as well (CPK, contingency for banquet, ref).
+
+## Section 1 - Revenue Generated from 2021-2022
+
+Foundations, in total, had generated `$3,698.21` from 2021-2022!
+
+```{r sum of money, echo = FALSE}
+sum(foundations_summary[7, ])
+```
+
+```{r loading libraries, echo = FALSE, warnings = FALSE, message = FALSE}
+library(ggplot2)
+library(webr)
+library(dplyr)
+library(ggrepel)
+library(tinytex)
+```
+
+This is a pie chart of the revenue gained from each categories, seeing which one gave Foundations the most amount of money and which one gave the least so the next year team can discuss ways to increase the ratio of funding in areas that may be lacking. I have also included a table of everything where we generated revenue individually and a summary of it.
+
+```{r revenue data, echo = FALSE, warning = FALSE, message = FALSE}
+rev_data <- foundations_venmo[foundations_venmo$Amount > 0, ]
+# takes only data of where we got money
+
+P_rev <- rev_data %>% group_by(Category, Description) %>% summarise(mon = sum(Amount))
+# groups that data into category and description and summarizes the amount of money gained
+
+cat_rev_data <- tapply(P_rev$mon, P_rev$Category, sum)[-c(5, 6)]
+# find the sum of money made from each category
+
+cat_revenue <- data_frame(Category = names(cat_rev_data),
+                          Amount = unname(cat_rev_data))
+# create data frame with column Category of the catergories and column Amount with the amount of money made in each category
+
+cat_revenue <- cat_revenue %>% 
+  arrange(desc(Category)) %>%
+  mutate(prop = round(Amount / sum(cat_revenue$Amount), 4) *100) %>%
+  mutate(ypos = cumsum(prop) - 0.5*prop )
+# for gg plot, used to find the percentage in to second line and the position for labels in the third position
+```
+
+This table details a basic summary of revenue from each area.
+
+<details>
+  <summary>Click for Table</summary>
+```{r, echo = FALSE}
+knitr::kable(cat_revenue)
+```
+</details>
+
+This table details each area where we received money.
+
+<details>
+  <summary>Click for Table</summary>
+```{r, echo = FALSE}
+knitr::kable(rev_data)
+```
+</details>
+
+```{r pie chart of revenue, echo = FALSE, warning = FALSE, message = FALSE}
+ggplot(cat_revenue, aes(x="", y= prop, fill = Category)) +
+  # ggplot starting with the data of cat_profits, x axis is nothing but the y axis is the percentage, colored by Category 
+  geom_bar(stat="identity", width = 1, color = "white") +
+  # pie graph outline
+  geom_col(width = 1, color = 1) + 
+  # outline color
+  coord_polar(theta = "y") +
+  # creates the pie graph
+  theme_void() +
+  # deletes unnecessary details
+  geom_label_repel(data = cat_revenue,
+                   aes(y = ypos, label = paste(prop, "%")),
+                   size = 4.5, nudge_x = 1, show.legend = FALSE) + 
+  # labels, y is position, label is the label for each part of the pie
+  guides(fill = guide_legend(title = "Category")) +
+  # add legend
+  scale_fill_brewer(palette = "Pastel1") +
+  # more color code 
+  ggtitle("Pie Graph of Revenue")
+
+sum(cat_revenue$Amount)
+```
+
+In 2022, Foundations Choregraphy generated `$16,964.79` from fundraising, lship and team dues, and Merch. Merch sales don't seem to be doing so well in comparing the ratio to the others such as team dues and fundraising. With this in mind, it's best in my opinion to hold back on ordering merch in bulk. The bulk of our money comes from lship and team dues and fundraising. The exact components in lship and team dues includes CAMP FC fees, team dues, and retreat dues. For the next year, we can try to increase the ratio of fundraising to lship and team dues. A suggestion I have is to buy around 120 roses on top of the pre-ordered roses as we tend to sell out fast, then steadily increase the quantity by 60 each quarter. Another way to also increase fundraising could be having fundraisers dealing with "partying". Before, the bulk of the money came from clubbing at Arena, perhaps a funradger or a dance party may help replicate that scene. For now, let's look at our losses from the quarter.
+
+***
+
+## Section 2 - Loss from 2021-2022
+
+Now let's look at the losses in each category and see what we can do to minimize the losses for the future. This is a table of all the losses that has occurred from 2021-2022 from paying reimbursements and paying for merch. 
+
+<details>
+  <summary>Click for Table</summary>
+```{r data losses, echo = FALSE, warnings = FALSE, message = FALSE}
+loss_data <- foundations_venmo[foundations_venmo$Amount < 0, ]
+loss_data$Amount <- abs(loss_data$Amount)
+
+P_losses <- loss_data %>% group_by(Category, Description) %>% summarise(mon = sum(Amount))
+
+cat_loss_data <- tapply(P_losses$mon, P_losses$Category, sum)
+# find the sum of money made from each category
+
+cat_losses <- data_frame(Category = names(cat_loss_data),
+                          Amount = unname(cat_loss_data))
+# create data frame with column Category of the catergories and column Amount with the amount of money made in each category
+
+cat_losses <- cat_losses %>% 
+  arrange(desc(Category)) %>%
+  mutate(prop = round(Amount / sum(cat_losses$Amount), 4) *100) %>%
+  mutate(ypos = cumsum(prop) - 0.5*prop )
+# for gg plot, used to find the percentage in to second line and the position for labels in the third position
+
+knitr::kable(loss_data)
+```
+</details>
+
+```{r pie chart for losses, echo = FALSE, warnings = FALSE, message = FALSE}
+ggplot(cat_losses, aes(x="", y= prop, fill = Category)) +
+  # ggplot starting with the data of cat_profits, x axis is nothing but the y axis is the percentage, colored by Category 
+  geom_bar(stat="identity", width = 1, color = "white") +
+  # pie graph outline
+  geom_col(width = 1, color = 1) + 
+  # outline color
+  coord_polar(theta = "y") +
+  # creates the pie graph
+  theme_void() +
+  # deletes unnecessary details
+  geom_label_repel(data = cat_losses,
+                   aes(y = ypos, label = paste(prop, "%")),
+                   size = 4.5, nudge_x = 1, show.legend = FALSE) + 
+  # labels, y is position, label is the label for each part of the pie
+  guides(fill = guide_legend(title = "Category")) +
+  # add legend
+  scale_fill_brewer(palette = "Pastel2") +
+  # more color code 
+  ggtitle("Pie Graph of Losses")
+
+sum(cat_losses$Amount)
+```
+
+Oh no! We have spent `$13,266.58` in total payments and fees! Looking at the pie chart, most of it has been spent on the category of payments and LSHIP & Team Dues. Payments includes reimbursements that didn't fit into any other category, banquet fees, and one large payment for merch. Some of these reimbursements were for showcase, auds, and pre-auds. Wintensive Payment was for Anthony Vibal and Matthew Sabino, wintensive choregraphers. Fundraisers and Food Fundraiser payments are typically reimbursements to pay for the materials and food needed to sell and merch includes buying the clothes such as wintensive. LSHIP and team dues main payments were paying for the retreat, paying for CAMP FC gear, the `$30` stipend for each team, and Sparktrendz shirts for teams.
+
+Looking at the category of payments even more closely, we can observe which description goes to which data and take notes.
+
+```{r pie chart for payments, echo = FALSE, warnings = FALSE, message = FALSE}
+payments_loss <- loss_data[loss_data$Category == "Payments", ]
+
+loss_payment <- payments_loss %>% group_by(Category, Description) %>% summarise(mon = sum(Amount))
+
+pay_losses <- loss_payment %>% 
+  arrange(desc(Description)) %>%
+  mutate(prop = round(mon / sum(loss_payment$mon), 4) *100) %>%
+  mutate(ypos = cumsum(prop) - 0.5*prop )
+# for gg plot, used to find the percentage in to second line and the position for labels in the third position
+
+ggplot(pay_losses, aes(x="", y= prop, fill = Description)) +
+  # ggplot starting with the data of cat_profits, x axis is nothing but the y axis is the percentage, colored by Category 
+  geom_bar(stat="identity", width = 1, color = "white") +
+  # pie graph outline
+  geom_col(width = 1, color = 1) + 
+  # outline color
+  coord_polar(theta = "y") +
+  # creates the pie graph
+  theme_void() +
+  # deletes unnecessary details
+  geom_label_repel(data = pay_losses,
+                   aes(y = ypos, label = paste(prop, "%")),
+                   size = 4.5, nudge_x = 1, show.legend = FALSE) + 
+  # labels, y is position, label is the label for each part of the pie
+  guides(fill = guide_legend(title = "Description")) +
+  # add legend
+  scale_fill_brewer(palette = "Set3") +
+  # more color code 
+  ggtitle("Pie Graph of Losses from Payments")
+```
+
+<details>
+  <summary>Click for Table</summary>
+```{r, echo = FALSE}
+knitr::kable(payments_loss)
+```
+</details>
+
+Examining the data even more, the one payment to Sparktrendz for merch is what covers most of the payment area! Since merch sales do not make up the bulk of what we earn, I suggest for the fall quarter to not order any merch unless it is for teams (team merch is included in the LSHIP and team dues category, and the team dues description). If we are in short supply, examine how much merch sales is then proceed to buy more, I suggest buying one box as totes are the more popular merch items. We paid around `$1254` in reimbursements this year, which includes all the showcase reimbursements and pre-auds/auds events. I suspect that these will be constants but we can deduct around `$200` if we choose to not do LSHIP gifts (data from Ixtzaly) and if we do not lose the table that Josh brought. 
+
+If you would like, you can observe the old data of where all Foundations Choreography payments came from.
+
+<details>
+  <summary>Click for Table</summary>
+```{r, echo = FALSE}
+old_venmo <- old_venmo[-which(old_venmo$Description == ""), ]
+knitr::kable(old_venmo[foundations_venmo$Amount < 0, ])
+```
+</details.
+
+***
+
+## Section 3 - Financial Health
+
+In this section, we can use financial pratices used in real life to evaluate the financial health of Foundations.
+
+### Section 3.1 - Revenue Growth
+
+Revenue Growth is the percent change in revenue from each period. In our case, we would use each quarter as 1 period and calculate the revenue growth from one period to the next.
+
+```{r Separating Periods, echo = FALSE}
+fall_quarter <- foundations_venmo[1:138, ]
+
+winter_quarter <- foundations_venmo[139:415, ]
+
+spring_quarter <- foundations_venmo[416:822, ]
+```
+
+```{r Getting Revenue per period, echo = FALSE}
+fall_qrev <- fall_quarter[fall_quarter$Amount > 0, ]
+
+winter_qrev <- winter_quarter[winter_quarter$Amount > 0, ]
+
+spring_qrev <- spring_quarter[spring_quarter$Amount > 0, ]
+
+knitr::kable(
+data.frame("Period" = c("Fall", "Winter", "Spring"),
+           "Revenue" = c(sum(fall_qrev$Amount),
+                         sum(winter_qrev$Amount),
+                         sum(spring_qrev$Amount))))
+```
+
+From each period, we have gained exponential growth in revenue, awesome! In the fall quarter, we obtained `$2,038`, in the spring quarter, we obtained `$4,930.65`, and in the fall quarter, we obtained `$9,996.14`. Let's observe the revenue growth from each period.
+
+```{r Revenue Growth from fall to winter, echo = FALSE}
+win_fall_rev <- (sum(winter_qrev$Amount) - sum(fall_qrev$Amount)) / sum(fall_qrev$Amount) * 100
+
+rev_gr_winfall <- paste(round(win_fall_rev, 2),"%")
+
+names(rev_gr_winfall) <- "Revenue Growth from Fall to Winter"
+
+rev_gr_winfall
+```
+
+Great news! The revenue growth from fall quarter to winter quarter was `141.94%`! That is a really large growth and is most likely contributed to having three teams in the winter quarter.
+
+```{r winter to spring revenue growth, echo = FALSE}
+spr_win_rev <- (sum(spring_qrev$Amount) - sum(winter_qrev$Amount)) / sum(winter_qrev$Amount) * 100
+
+rev_gr_sprwin <- paste(round(spr_win_rev, 2), "%")
+
+names(rev_gr_sprwin) <- "Revenue Growth from Winter to Spring"
+
+rev_gr_sprwin
+```
+
+The revenue growth from winter to spring was `102.73%`. This is still really good and amazing. Overall, the revenue growth for each period is very healthy.
+
+### Section 3.2 - Revenue Growth Per Team
+
+As Foundations Choregrapher grew over the year, so did the size of our teams. We can examine the teams more closely and see what was the revenue growth per team. 
+
+```{r, echo = FALSE}
+winter_teams <- which(winter_qrev$Description == "OOP Dues" |
+                      winter_qrev$Description == "DMV Dues" |
+                      winter_qrev$Description == "BOFA Dues")
+
+winter_revenue <- sum(winter_qrev$Amount[-winter_teams]) +
+                  sum(winter_qrev$Amount[winter_teams]) / 3
+
+spring_teams <- which(
+  spring_qrev$Description == "Double Take Dues" |
+  spring_qrev$Description == "YUH Dues" |
+  spring_qrev$Description == "DDR Dues" |
+  spring_qrev$Description == "Dale Dues" |
+  spring_qrev$Description == "4G Dues")
+
+spring_revenue <- sum(spring_qrev$Amount[-spring_teams]) +
+                  sum(spring_qrev$Amount[spring_teams]) / 5
+```
+
+```{r, echo = FALSE}
+win_fall_rev_team <- paste(round((winter_revenue - sum(fall_qrev$Amount)) / sum(fall_qrev$Amount) * 100, 2), "%")
+
+names(win_fall_rev_team) <- "Revenue Growth per Team from Fall to Winter"
+
+win_fall_rev_team
+```
+
+Hurray! Even if we account for more teams in the winter quarter, we still saw a `64.41%` in revenue growth!
+
+```{r, echo = FALSE}
+spr_win_rev_team <- paste(round((spring_revenue - winter_revenue) / winter_revenue * 100, 2), "%")
+
+names(spr_win_rev_team) <- "Revenue Growth per Team from Winter to Spring"
+
+spr_win_rev_team
+```
+
+Even better! We had a `78.45%` revenue growth from winter to spring! This is all wonderful news and can be attributed to the fact that as rose fundraisers are our most popular fundraiser during the quarter, the more teams there are, the more fundraising will happen!
+
+### Section 3.3 - Profit Margin
+
+In the financial world, there are many profit margins method you can use. Unfortunately, since we have no liquidity assets, we will be using the Net Profit margin for simplicity as it is simply `(total revenue - total costs) / total costs`.
+
+```{r Net Profit Margin, echo = FALSE}
+net_profit_margin <- (sum(cat_revenue$Amount) - sum(cat_losses$Amount)) / sum(cat_revenue$Amount) * 100
+
+npm <-paste(round(net_profit_margin, 2), 0, " %", sep = "")
+
+names(npm) <- "Net Profit Margin"
+
+npm
+```
+
+The net profit margin is `21.80%`! This is a very high net profit margin as it means that `21.80%` of our revenue per unit becomes profit! From observing the revenue growth and the net profit margin, Foundations Choregraphy is at a healthy financial standing. 
+
+***
+
+## Section 4 - Regression Lines
+
+Speaking on the topic of teams and fundraising, we can try to see if we can graph a relationship between the number of teams and rose sales and pie fundraisers. We first create a data frame of the number of teams and the funding from rose sales and pie fundraisers.
+
+```{r, echo = FALSE}
+fall_roses <- sum(fall_qrev$Amount[fall_qrev$Description == "Rose Fundraiser"])
+
+win_roses <- sum(winter_qrev$Amount[winter_qrev$Description == "Rose Fundraiser"])
+
+spr_roses <- sum(spring_qrev$Amount[spring_qrev$Description == "Rose Fundraiser"])
+
+fall_pie <- sum(fall_qrev$Amount[fall_qrev$Description == "Pie Fundraiser"])
+
+win_pie <- sum(winter_qrev$Amount[winter_qrev$Description == "Pie Fundraiser"])
+
+spr_pie <- sum(spring_qrev$Amount[spring_qrev$Description == "Pie Fundraiser"])
+
+RP_teams <- data_frame(
+  "Number of Teams" = c(1, 3, 5),
+  "Rose Sales" = c(fall_roses, win_roses, spr_roses),
+  "Pie Fundraiser" = c(fall_pie, win_pie, spr_pie))
+
+knitr::kable(RP_teams)
+```
+
+Then we graph! 
+
+### Section 4.1 - Regression on Roses
+
+```{r, echo = FALSE}
+rose_function <- function(x) {
+  279.28412 + 5.05001 * exp(x)
+}
+
+rose_g <- ggplot(data = RP_teams, 
+       aes(x = `Number of Teams`, y = `Rose Sales`)) +
+        geom_point()
+
+rose_g + stat_function(fun = rose_function, color = "red")
+
+
+Teams_Roses <- summary(lm((RP_teams$`Rose Sales`) ~ exp(RP_teams$`Number of Teams`)))
+
+Teams_Roses
+```
+Here, the red line is the relationship between the number of teams and the amount of rose sales we get! The model for this is:
+
+`y = 279.28412 + 5.05001 * exp(x)` 
+
+where x is the number of teams and y is the rose sales.
+The model overall seems pretty accurate, the coefficients has a low probability chance of being 0, meaning that if we were to run tests on it, the coefficient should not show to be 0 as far as the 0.1% level. The R squared is also very high, indicating a strong correlation between teams and roses. Even though this is all good, I would still use caution if using this model as I only had 1 year of data to work with and the previous years were unusable due to COVID and looking past COVID would also take lots of digging and getting into contact with people I do not know. Please note this was the price for roses in the spring quarter:
+
+1 rose | 2 roses | 6 roses | 12 roses 
+:-: | :-: | :-: | :-: |
+`$3.00` | `$5.00` | `$12.00` | `$16.00`
+
+### Section 4.2 - Regression on Pies
+
+```{r, echo = FALSE}
+pie_function <- function(x) {
+  exp(3.22879 + 0.56195 * x)
+}
+
+pie_g <- ggplot(data = RP_teams, 
+       aes(x = `Number of Teams`, y = `Pie Fundraiser`)) +
+  geom_point()
+
+pie_g + stat_function(fun = pie_function, color = "blue")
+
+Team_Pies <- summary(lm(log(RP_teams$`Pie Fundraiser`) ~ RP_teams$`Number of Teams`))
+
+Team_Pies
+```
+
+The model for the number of teams and pie fundraiser is:
+
+`ln(y) = 3.22879 + 0.56195x`
+
+Here, the intercept and the coefficient both have a low probability of being 0, which is good, it shows that there is a stronger correlation between pies and the number of teams. The R squared is also very high and the residual standard error is lower. Overall, this model is well in predicting pie fundraisers, but like before, we would need more data to draw actual conclusions. Please note that these were the prices for the pie fundraisers:
+
+Pie | Flour | Egg
+:-: | :-: | :-:
+`$2.00` | `$2.00` | `$3.00`
+
+***
+
+## Section 5 - Final Words 
+
+So how can future admin use this data after seeing how 2021-2022 performed?
+
+1. You can utilize this report to examine how much money each team can bring in looking at the sum of the `Team Dues` description.
+
+2. Find out how much cost can be cutted down when planning banquet and retreat by comparing prices.
+
+3. Use the previous fundraisers data to see how much money it got us and use that as an estimate when budgeting.
+
+4. You can use the models to predict sales in rose and pie fundraisers.
+
+These are just some of the ways you can utilize the data here, but my biggest reccomendation would be to stop buying merch as those have been the lowest sales and finance couldn't break even last year. So try to restrict buying tshirts and try reusing the old one in order to save some money. 
+
+
+
+
+
+
+
