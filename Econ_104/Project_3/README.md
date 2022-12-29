@@ -1,0 +1,5 @@
+In project 3 for Econ 104, Data Science for Economists, we use two different datasets, one working with panel data and another working with binary data, in order to create two different models. In our panel data, we explore the dataset of cigars gathered from 50 states plus Washington DC and what factors would affect the cigar prices. Since this data is across different states, we create two models, the random effect model and the fixed effect model in order to determine an accurate model to predict cigar prices. In our binary data, we work with emails that were sent to senators and use the linear probability model, probit model, and logit model in order to determine which factors would contribute in a response from senators and which model predicted responses with the most accuracy. 
+
+Although the cigar dataset is from the plm package, the dataset and its documentation can be found here: [Cigar](https://www.picostat.com/dataset/r-dataset-package-plm-cigar)
+
+The binary dataset is also from a R package and it exists in the casualdata package. The documentation can be found here: [Black Politicians](https://rdrr.io/cran/causaldata/man/black_politicians.html)
