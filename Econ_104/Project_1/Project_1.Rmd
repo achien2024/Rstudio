@@ -1,0 +1,463 @@
+---
+title: "World Happiness"
+author: "Aaron Chien and Dorris Wu"
+date: "2022-10-01"
+output:
+  html_document: null
+  toc: yes
+  toc_float: yes
+  theme: united
+  highlight: tang
+  pdf_document: default
+---
+
+```{r, echo = FALSE}
+rm(list = ls())
+```
+
+```{r intro, echo = FALSE}
+library(magrittr)
+library(ggplot2)
+library(rmarkdown)
+library(tidyverse)
+library(tidyquant)
+library(forecast)
+library(tseries)
+library(knitr)
+library(stargazer)
+library(quantmod)
+library(Hmisc)
+library(skimr)
+library(SimDesign)
+library(devtools)
+library(lmtest)
+library(leaps)
+library(AER)
+library(PoEdata)
+library(Boruta)
+```
+
+## Introduction
+Hello, in the project by Aaron Chien and Dorris Wu, we will be exploring the dataset of world happiness from Kaggle exploring different variables and their effects on happiness. Each variable has a value from 0 to 10 where 0 is the worst and 10 is the best base on public polls. The dataset can be found here: [world happiness data](https://www.kaggle.com/datasets/unsdsn/world-happiness). 
+
+## Section 1
+```{r Loading the Data}
+world_happiness <- read.csv("world_happiness.csv")
+```
+
+```{r variables}
+colnames(world_happiness) <- c("Rank", "Country", "Score", "GDP", "Support", "Health", "Freedom", "Generosity", "Corruption")
+```
+
+To understand the data better when coding, I will be renaming some of these column names: overall rank - Rank, Country or region - Country, Score - Score, GDP per capita - GDP, Social support - Support, Healthy life expectancy - Health, Freedom to make life choices - Freedom, Generosity - Generosity, Perceptions of corruption - Corruption. 
+
+```{r GDP per capita}
+world_happiness %>%
+  ggplot(mapping = aes(x = GDP, y = Score)) +
+  geom_point() +
+  geom_smooth(formula = y ~ x, method = lm, se = T, col = "red") +
+  labs(title = "Correlation and Scatter Plot", 
+       x = "GDP Per Capita", 
+       y = "Happiness Score")
+
+world_happiness %>%
+  ggplot(mapping = aes(x = GDP)) +
+  geom_histogram(aes(y = ..density..), fill = "red", alpha = 0.5,
+                 bins = 30) +
+  geom_density(fill = "blue", alpha = 0.2) +
+  labs(title = "Histogram of GDP per Capita",
+       x = "GDP per Capita",
+       y = "Probability")
+
+world_happiness %>%
+  ggplot(mapping = aes(x = GDP)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of GDP per Capita",
+       x = "GDP per Capita",
+       y = "Points")
+
+summary(world_happiness$GDP)
+```
+
+Examining GDP per capita first, we can see that the data is a bit left-skewed and that there are no outliers in the boxplot. The skewness is speaking out to me as we can see that most of the data does not lie with the mean. However, I do think the skewness is not that big and we can continue on. The regression line also seems to fit in well with the actual score, indicating that world happiness is correlated with GDP per capita. 
+
+```{r social support}
+world_happiness %>%
+  ggplot(mapping = aes(x = Support, y = Score)) +
+  geom_point() +
+  geom_smooth(formula = y ~ x, method = lm, se = T, col = "red") +
+  labs(title = "Correlation and Scatter Plot", 
+       x = "Social Support", 
+       y = "Happiness Score")
+
+world_happiness %>%
+  ggplot(mapping = aes(x = Support)) +
+  geom_histogram(aes(y = ..density..), fill = "red", alpha = 0.5,
+                 bins = 30) +
+  geom_density(fill = "blue", alpha = 0.2) +
+  labs(title = "Histogram of Social Support",
+       x = "Social Support",
+       y = "Probability")
+
+world_happiness %>%
+  ggplot(mapping = aes(x = Support)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of Social Support",
+       x = "Social Support",
+       y = "Points")
+
+summary(world_happiness$Support)
+```
+
+Here, we see that social support is heavily left-skewed and has many outliers, these outliers can pose a problem which is why we will be getting rid of them later on. But looking at the regression line against the score, we can see that they are a bit correlated, so social support may also be an important predictor in world happiness. 
+
+```{r health and life expectancy}
+world_happiness %>%
+  ggplot(mapping = aes(x = Health, y = Score)) +
+  geom_point() +
+  geom_smooth(formula = y ~ x, method = lm, se = T, col = "red") +
+  labs(title = "Correlation and Scatter Plot", 
+       x = "Health and Life Expectancy", 
+       y = "Happiness Score")
+
+world_happiness %>%
+  ggplot(mapping = aes(x = Health)) +
+  geom_histogram(aes(y = ..density..), fill = "red", alpha = 0.5,
+                 bins = 30) +
+  geom_density(fill = "blue", alpha = 0.2) +
+  labs(title = "Histogram of Health and Life Expectancy",
+       x = "Health and Life Expectancy",
+       y = "Probability")
+
+world_happiness %>%
+  ggplot(mapping = aes(x = Health)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of Health and Life Expectancy",
+       x = "Health and Life Expectancy ",
+       y = "Points")
+
+summary(world_happiness$Health)
+```
+
+Here, life expectancy has two peaks and has one outlier. This may be problematic as it may skewed the data, so we may have to use life expectancy as the cause of hetereoskedascity in the model if hetereoskedascity is present. However, the score of happiness and life expectancy do seem to be correlated so this may be another predictor that needs to be included in the model. 
+
+```{r freedom to make choices}
+world_happiness %>%
+  ggplot(mapping = aes(x = Freedom, y = Score)) +
+  geom_point() +
+  geom_smooth(formula = y ~ x, method = lm, se = T, col = "red") +
+  labs(title = "Correlation and Scatter Plot", 
+       x = "Freedom", 
+       y = "Happiness Score")
+
+world_happiness %>%
+  ggplot(mapping = aes(x = Freedom)) +
+  geom_histogram(aes(y = ..density..), fill = "red", alpha = 0.5,
+                 bins = 30) +
+  geom_density(fill = "blue", alpha = 0.2) +
+  labs(title = "Histogram of Freedom",
+       x = "Freedom",
+       y = "Probability")
+
+world_happiness %>%
+  ggplot(mapping = aes(x = GDP)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of Freedom",
+       x = "Freedom",
+       y = "Points")
+
+summary(world_happiness$Freedom)
+```
+
+In the freedom variable, we can see that there is a strong correlation between happiness and the freedom to make choices. Examining further into the histogram, we see that it is skewed the to left, meaning that most of the data lies in the median rather than the mean. 
+
+```{r generosity}
+world_happiness %>%
+  ggplot(mapping = aes(x = Generosity, y = Score)) +
+  geom_point() +
+  geom_smooth(formula = y ~ x, method = lm, se = T, col = "red") +
+  labs(title = "Correlation and Scatter Plot", 
+       x = "Generosity", 
+       y = "Happiness Score")
+
+world_happiness %>%
+  ggplot(mapping = aes(x = Generosity)) +
+  geom_histogram(aes(y = ..density..), fill = "red", alpha = 0.5,
+                 bins = 30) +
+  geom_density(fill = "blue", alpha = 0.2) +
+  labs(title = "Histogram of Generosity",
+       x = "Generosity",
+       y = "Probability")
+
+world_happiness %>%
+  ggplot(mapping = aes(x = GDP)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of Generosity",
+       x = "Generosity",
+       y = "Points")
+
+summary(world_happiness$Generosity)
+```
+
+Examining generosity, we can see that it is heavily skewed to the right and we also have a few outliers that we may need to remove in order to gain a better model and there also seems to be more variance of the score against the regression line. The regression line is very flat, so generosity may not be the best predictor variable to use here. 
+
+```{r perceptions of corruption}
+world_happiness %>%
+  ggplot(mapping = aes(x = Corruption, y = Score)) +
+  geom_point() +
+  geom_smooth(formula = y ~ x, method = lm, se = T, col = "red") +
+  labs(title = "Correlation and Scatter Plot", 
+       x = "Corruption", 
+       y = "Happiness Score")
+
+world_happiness %>%
+  ggplot(mapping = aes(x = Corruption)) +
+  geom_histogram(aes(y = ..density..), fill = "red", alpha = 0.5,
+                 bins = 30) +
+  geom_density(fill = "blue", alpha = 0.2) +
+  labs(title = "Histogram of Corruption",
+       x = "Corruption",
+       y = "Probability")
+
+world_happiness %>%
+  ggplot(mapping = aes(x = GDP)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of Corruption",
+       x = "Corruption",
+       y = "Points")
+
+summary(world_happiness$Corruption)
+```
+
+Perceptions of corruption is heavily skewed and we also see in the regression line that there is some correlation, but a lot of the data is scattered towards low levels of corruption. This variable would need to be explored more because the regression line is showing correlation, but there's a high cluster of the scores towards the levels of 0 to 0.2 of corruption.
+
+## Section 2
+
+To start off, we create a base model to work from where Score is the dependent variable base on social support, health and life expectancy, freedom to make choices, generosity, and perceptions of world corruption. 
+
+```{r baseline}
+wh_reg <- lm(Score ~ GDP + Support + Health + Freedom +
+               Generosity + Corruption, data = world_happiness)
+
+stargazer(wh_reg, type = "text")
+```
+
+Our intercept, GDP, social support, and freedom estimates are the most significance as they reject the null hypothesis that they are 0 at even the 1% level of significance. The generosity estimate and the level of perceptions of corruption are the least significant. Generosity fails to reject the value that it is 0 at all levels and corruption fails to reject the value that it is 0 at the 10% level of significance.  
+
+The full equation is: 
+$$Score = 1.795 + 0.775 \times GDP + 1.124 \times Support + 1.078 \times Health + 1.455 \times Freedom + 0.490 \times Generosity + 0.972 \times Corruption$$
+## Section 3
+Since the generosity and perceptions of corruption are the least significant, we can probably remove them but first we should remove the outliers to see if they are causing the insignificance. We decided to remove the outliers because the data is skewed, so removing the outliers may help reduce a bit of the skewness.  
+
+```{r removing outliers}
+support <- world_happiness$Support
+health <- world_happiness$Health
+freedom <- world_happiness$Freedom
+gen <- world_happiness$Generosity
+corrupt <- world_happiness$Corruption
+
+outliers <- c(which(support %in% boxplot.stats(support)$out),
+              which(health %in% boxplot.stats(health)$out),
+              which(freedom %in% boxplot.stats(freedom)$out),
+              which(gen %in% boxplot.stats(gen)$out),
+              which(corrupt %in% boxplot.stats(corrupt)$out))
+
+world_happiness_cl <- world_happiness[-outliers, ]
+```
+
+Removing outliers and creating a new regression line.
+
+```{r new baseline}
+wh_reg2 <- lm(Score ~ GDP + Support + Health + Freedom + 
+                              Generosity + Corruption,
+                              data = world_happiness_cl)
+
+stargazer(wh_reg2, type = "text")
+```
+
+The new equation after removing the outliers is:
+$$Score =  1.618 +  0.709 \times GDP +  1.196 \times Support + 1.183 \times Health +  1.391 \times Freedom + 0.928 \times Generosity + 1.135 \times Corruption$$
+
+## 4
+```{r Mallows CP 1}
+ss <- regsubsets(Score ~ GDP + Support + Health + Freedom +
+                         Generosity + Corruption, 
+                         method = c("exhaustive"), nbest = 3,                                 data = world_happiness_cl)
+```
+
+```{r Mallows CP 2}
+subsets(ss, statistic = "cp", legend = F, main = "Mallows CP")
+library(olsrr)
+possibilites <- ols_step_all_possible(wh_reg2)
+possibilites[c(42, 57, 58, 63), ]
+```
+
+Examining the Mallows CP graph, although difficult to point out, we can see that the lowest score is GD - S - H - F - Gn, meaning that we should be adding these variables in our model. 
+
+```{r Boruta, echo = FALSE}
+Bor_res <- Boruta(Score ~ ., data = world_happiness_cl, doTrace = 1)
+attStats(Bor_res)
+cbind(rownames(attStats(Bor_res)), attStats(Bor_res)[, "decision"])
+```
+
+GDP per capita, Social support, Healthy life expectancy, Freedom to make choices, and Perception of corruption are the most important predictors with the equation from the Boruta algorithmn. Comparing the Boruta algorithmn and Mallows CP, GDP + Support + Health + Freedom + Generosity + Corruption would be best as it has a mallows CP of 7, only 0.2 off from GDP + Support + Health + Generosity. The Boruta algorithmn also says that Generosity is tenantive, so it may or may not be significant, but it may be in an interaction variable. So for now, we are able to keep our orginal regression, wh_reg2.
+
+## Section 5
+
+After the information we have gained in section 4, we can create a new model where GDP, Social Support, Health and Life Expectancy, Freedom to make choices, and Perceptions of corruption are the predictors.
+
+```{r VIF}
+vif(wh_reg2)
+```
+
+The VIF score is relatively small for all of my variables, so I am deciding to keep them. However, GDP and Health are the largest, but since they are not near a score of 5, I do not believe I need to change my equation. 
+
+## Section 6
+
+```{r residuals vs y}
+residuals_plot <- data_frame(Residuals = wh_reg2$residuals,
+                             Fitted_values = wh_reg2$fitted.values)
+residuals_plot %>%
+  ggplot(mapping = aes(x = Fitted_values, y = Residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0, color = "red") +
+  labs(x = "Fitted Values",
+      y = "Residuals",
+      title = "Residuals Against Fitted Values")
+```
+
+The residuals do not appear to follow a function, so I do not believe there are any forms of hetereoskedascity present, but testing shall double check this.
+
+## Section 7
+
+```{r resettest}
+resettest(formula = wh_reg2, power = 2, type = "fitted")
+```
+$$Score =  1.618 +  0.709 \times GDP +  1.196 \times Support + 1.183 \times Health +  1.391 \times Freedom + 0.928 \times Generosity + 1.135 \times Corruption + \beta \times Score^2$$
+
+We reject the null that the $\beta$ for Score^2 is 0, so there is at least an interaction between two variables. 
+
+```{r reset orginal model score}
+AIC(wh_reg2)
+BIC(wh_reg2)
+```
+
+When creating different models, we can compare the different models to the AIC and BIC of wh_reg2 to have a sense of which model is the best. 
+
+```{r reset model}
+wh_reset_model <- lm(Score ~ GDP + Support  + Health + Freedom + I(Support * Health), data = world_happiness_cl)
+
+summary(wh_reset_model)
+```
+
+After testing many models, I concluded that this model would be the best as it had the lowest AIC and BIC score, but we still need to examine for heteroskedascity. I also removed generosity and corruption as they were proven to be insignificant in my summary of the regression model and did not improve the model at all in interactions. 
+
+## Section 8
+
+```{r GQ test}
+gqtest(wh_reset_model, fraction = 0.20, alternative = "greater",
+       order.by = ~ GDP + Support + Health + Freedom + 
+       I(Support * Health), data = world_happiness_cl)
+```
+
+According to the GQ test, our p value is EXTREMELY high, meaning that we fail to reject the null so our data is relatively homoskedastic. 
+
+```{r BP test 1}
+wh_reset_summ <- summary(wh_reset_model)
+
+N <- nrow(world_happiness_cl)
+resid_sq <- (wh_reset_summ$residuals)^2
+world_happiness_cl$resid_sq <- resid_sq
+
+wh_resid <- lm(resid_sq ~ GDP + Support + Health + Freedom +
+                          I(Support * Health), 
+                          data = world_happiness_cl)
+```
+
+```{r BP test 2}
+qchisq(0.95, 6 - 1)
+N * summary(wh_resid)$r.squared
+```
+
+Using the BP test on the full mode, we see that the BP value is NOT greater than the chi square test, so we fail to reject the null that it is homoskedastic. 
+
+```{r Individual BP tests 1}
+GDP_BP <- lm(resid_sq ~ world_happiness_cl$GDP)
+
+Support_BP <- lm(resid_sq ~ world_happiness_cl$Support)
+
+Health_BP <- lm(resid_sq ~ world_happiness_cl$Health)
+
+Freedom_BP <- lm(resid_sq ~ world_happiness_cl$Freedom)
+
+Support_Health_BP <- lm(resid_sq ~ I(world_happiness_cl$Support * 
+                                    world_happiness_cl$Health))
+```
+
+I decided to go with individual BP tests on each variable so I can better examine which variable is causing heteroskedascity if any exists.
+
+```{r Individual BP tests 2}
+qchisq(0.95, 2 - 1)
+
+N * summary(GDP_BP)$r.squared
+N * summary(Support_BP)$r.squared
+N * summary(Health_BP)$r.squared
+N * summary(Freedom_BP)$r.squared
+N * summary(Support_Health_BP)$r.squared
+```
+
+We see that none of our variables are greater than the chisq, so our data is relatively homoskedastic. 
+
+## Section 9 
+
+```{r Testing base model}
+AIC(wh_reg)
+BIC(wh_reg)
+```
+
+The AIC and BIC are well above 200, which is really high. But let's examine our other model.
+
+```{r Tesitng base model without outliers}
+AIC(wh_reg2)
+BIC(wh_reg2)
+```
+
+Removing the outliers helped improve our model, but the AIC and BIC score is still quite high. 
+
+```{r residual model}
+AIC(wh_reset_model)
+BIC(wh_reset_model)
+```
+
+This model has an AIC and BIC score that is less than our original model, indicating a better fit and predictor. 
+
+## Section 9 
+```{r Model}
+stargazer(wh_reset_model, type = "text")
+```
+
+Our final model is 
+$$Score = 4.833 + 0.667 \times GDP + -1.576 \times Support + -3.529 \times Health + 1.670 \times Freedom + 4.092 \times Support \times Health$$
+
+The F stats has a p value that is extremely small, so all the coefficients are significant enough and not 0. The R^2 is also 0.773 so 77.30% of the score is explained by the model itself, which is a majority and I am satisfied with that. The standard errors for each coefficient is quite small, meaning that the coefficient for each variable would not differ too much. For GDP, an increase in the score increases the happiness by 0.667 and increase in the score for freedom increases happiness by 1.670. Since Support and Health have an interaction, an increase in the Support score increases happiness by $-1.576 + 4.092 \times Health$ and an increase in the Health score increases happiness by $-3.529 + 4.092 \times Support$.
+
+```{r Results}   
+results <- data.frame(Row = 1:N,
+                      Score = (world_happiness_cl$Score),
+                      Predicted = (wh_reset_model$fitted.values))
+
+results %>%
+  ggplot(aes(Row)) +
+  geom_point(aes(y = Score)) + 
+  geom_point(aes(y = Predicted), col = "red") +
+  labs(title = "Fitted Score and Real Score",
+       x = "Observation",
+       y = "Happiness Score") +
+  scale_color_manual(breaks=c('Observation', 'Fitted'),
+                     values=c('Observation'='black', 
+                              'Fitted'='red'))
+
+```
+
+As you can see, they both follow along the same trend and path, but of course there are some residuals as in the world of data science, it is very difficult to find the true parameters and true equations, but we can do our best to estimate it as close as possible. 
+
