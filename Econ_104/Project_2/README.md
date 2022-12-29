@@ -2,5 +2,5 @@ This is Project 2 for Econ 104, Data Science for Economists and in this project,
 
 The dataset for the file can be found on Kaggle, uploaded by "SUMANTHVRAO" in 2019 with data being collected from 2013 to 2017.
 
-The link can be found here: (Daily Climate time series)[https://www.kaggle.com/datasets/sumanthvrao/daily-climate-time-series-data]
+The link can be found here: [Daily Climate time series](https://www.kaggle.com/datasets/sumanthvrao/daily-climate-time-series-data)
 
