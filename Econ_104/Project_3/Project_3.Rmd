@@ -1,0 +1,855 @@
+---
+title: "Binary Political Response"
+author: "Group 32"
+date: "2022-11-20"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE, include=FALSE}
+rm(list = ls())
+library(car)
+library(magrittr)
+library(ggplot2)
+library(rmarkdown)
+library(tidyverse)
+library(tidyquant)
+library(forecast)
+library(tseries)
+library(knitr)
+library(stargazer)
+library(quantmod)
+library(Hmisc)
+library(skimr)
+library(SimDesign)
+library(devtools)
+library(lmtest)
+library(leaps)
+library(AER)
+library(POE5Rdata)
+library(dynlm)
+library(ivreg)
+library(sandwich)
+library(lmtest)
+library(kableExtra)
+library(zoo)
+library(dplyr)
+library(reshape2)
+library(corrplot)
+library(broom) 
+library(systemfit) #where GrunfeldGreene is
+library(gplots) #For our graphs
+library(plm) #for panel models
+library(coefplot)
+library(packHV)
+library(cowplot)
+library(Ecdat)
+library(causaldata)
+library(margins)
+```
+
+# I: Panel Data Models
+
+## 1. Intro
+
+Hello, we are Project Group #32 with Aaron Chien, Shaune Le, Yoojin Min, and Doris Wu. With our dataset and model, we are attempting to answer the economic/business/finance question about how sales or emphasis on the prices of cigars are affected by the state’s statistics. Our cigar dataset, from the Ecdat package, was collected from 1963 to 1992, and it is a panel data of 50 observations with the data collected from 50 states and Washington DC. The column names or variables are state, year, price (price per pack of cigarettes in dollars), pop (population in millions), pop16 (population above the age of 16 in millions), cpi (consumer price index), ndi (per capita disposable income), sales, and pimin (minimum price in adjoining states per pack of cigarettes in dollars). The dimension of our panel data is 1380 x 9, or 1380 rows and 9 columns. After examining our index of state, we can see that they each have the same value of observations (30), making our data a balanced panel. Our index is 50 and time is 30, so we have relatively wide and short panel data.  
+
+```{r}
+# reading in initial data
+data(Cigar)
+head(Cigar)
+dim(Cigar)
+```
+
+Doing some data cleaning, we are first trying to see if there are any missing values. 
+
+```{r}
+lapply(Cigar, function(x) {which(is.na(x))})
+```
+
+Since there are no NA values, we can safely continue. 
+
+```{r}
+table(Cigar$state)
+```
+
+Examining our index of state, we see that they each have the same value of observations, making this a balanced panel. 
+
+## 2
+
+## 2.1 : Boxplots of Continous Variables
+
+```{r}
+cigar_price <- Cigar %>%
+  ggplot(mapping = aes(x = price)) +
+  geom_boxplot() +
+  ggtitle("Price") +
+  labs(x = "Price")
+
+cigar_pop <- Cigar %>%
+  ggplot(mapping = aes(x = pop)) +
+  geom_boxplot() +
+  ggtitle("Population") +
+  labs(x = "pop")
+
+cigar_pop16 <- Cigar %>%
+  ggplot(mapping = aes(x = pop16)) +
+  geom_boxplot() +
+  ggtitle("Population over age 16") +
+  labs(x = "pop16")
+
+cigar_cpi <- Cigar %>%
+  ggplot(mapping = aes(x = cpi)) +
+  geom_boxplot() +
+  ggtitle("CPI") +
+  labs(x = "cpi")
+
+cigar_ndi <- Cigar %>%
+  ggplot(mapping = aes(x = ndi)) +
+  geom_boxplot() +
+  ggtitle("NDI (per capita disposable income)") +
+  labs(x = "ndi")
+
+cigar_sales <- Cigar %>%
+  ggplot(mapping = aes(x = sales)) +
+  geom_boxplot() +
+  ggtitle("Sales") +
+  labs(x = "sales")
+
+cigar_pimin <- Cigar %>%
+  ggplot(mapping = aes(x = pimin)) +
+  geom_boxplot() +
+  ggtitle("Minimum Price in Adjoining States") +
+  labs(x = "pimin")
+
+plot_grid(cigar_price, cigar_pop, cigar_pop16, cigar_cpi, cigar_ndi, cigar_sales, cigar_pimin, ncol = 3, nrow = 3)
+```
+
+* The boxplot of price indicates that the data for price is heavily skewed to the right as the median is closer to the bottom of the box, and the whisker is shorter on the lower end of the box. There are some high outliers present.  
+
+* The boxplot of population indicates that the data for population is skewed to the right. Although the median is close to the mean, the whisker is much longer on the higher end of the box, and there are a lot of high outliers present. Moreover, since there are a lot of outliers in this data, population may not be a good use in predicting sales.  
+
+* The boxplot of population above the age of 16 indicates that the data is skewed to the right. Although the median is close to the mean, the whisker is much longer on the higher end of the box, and there are a lot of high outliers present.  
+
+* The boxplot of CPI indicates that the data is slightly skewed to the right because median is slightly closer to the bottom of the box, and the whisker is longer on the higher end of the box. But there are no outliers present.  
+
+* The boxplot of NDI indicates that the data for NDI is skewed to the right as the median is slightly closer to the bottom of the box, and the whisker is shorter on the lower end of the box. There are a few high outliers present.  
+
+* The boxplot of sales indicates that the data for sales is skewed to the right. Although the median is close to the mean, the whisker is longer on the higher end of the box. Also, there are a lot more high outliers to the right rather than lower outliers. Moreover, there are a lot of outliers in sales rather than price, so it may be better to predict price rather than sales. 
+
+* The boxplot of the minimum price in adjoining states indicates that the data is skewed to the right because median is closer to the bottom of the box, and the whisker is longer on the higher end of the box. There seems to be 1 high outlier present. 
+
+## 2.3: Histogram and Density Line of Variables
+
+```{r}
+hist_boxplot(Cigar$price, freq = FALSE, 
+             main = "Histogram of Cigar Price",
+             xlab = "Price")
+lines(density(Cigar$price))
+```
+
+Examining the histogram of Cigar Price, we see that it is skewed to the right, so the median is higher than the median. Since this histogram is skewed, we should use the log of the price in order to make it more normally distributed.
+
+```{r}
+hist_boxplot(log(Cigar$price), freq = FALSE, 
+             main = "Histogram of Log Cigar Prices",
+             xlab = "Log Price")
+lines(density(log(Cigar$price)))
+```
+
+Examining the log price of the cigars, we see that the skewness is a bit fixed, but it is now multimodal, however this is better than the heavily skewed histogram, so we shall continue using log price as our predictor. 
+
+```{r}
+Cigar$lprice <- log(Cigar$price)
+```
+
+```{r}
+hist_boxplot(Cigar$cpi, freq = FALSE, main = "Histogram of CPI",
+             xlab = "CPI")
+lines(density(Cigar$cpi))
+```
+
+Examining the CPI variable, we see that this is right-skewed so the median is larger than the mean and the boxplot also shows that there are no outliers.
+
+```{r}
+Cigar %>%
+ggplot(aes(x = cpi, y = lprice, colour = factor(state))) +
+  geom_point(alpha = 0.5) + 
+  xlab("CPI") + 
+  ylab("Log Price") + 
+  guides(color = guide_legend(title = "State")) + 
+  ggtitle("Scatterplot of Log Price against CPI")
+```
+
+We created a scatterplot to visualize the log of the price per pack of cigarettes against the consumer price index (CPI) by state. Looking at the scatter plot, all the states display a similar relationship between the log of the price per pack of cigarettes and CPI. More specifically, the scatterplot shows a strong, positive, linear association between the log of the price per pack of cigarettes and CPI for all 50 states and Washington DC. This suggests that the higher the CPI, the higher the log of the price per pack of cigarettes are for all 50 states and Washington DC.  
+
+```{r}
+hist_boxplot(Cigar$ndi, freq = FALSE, main = "Histogram of NPI", xlab = "NPI")
+lines(density(Cigar$ndi))
+```
+
+The NPI variable, we see that it is right-skewed and contains a bit of outliers. Because it is right-skewed, the median is also higher than the mean. Also, since it is skewed, using a log would be better in order to make it more normally distributed, but since our predictor is already logged, we do not need to make it more normally distributed. 
+
+```{r}
+Cigar %>%
+ggplot(aes(x = ndi, y = lprice, colour = factor(state))) +
+  geom_point(alpha = 0.5) + 
+  xlab("NPI") + 
+  ylab("Log Price") +
+  guides(color = guide_legend(title = "State")) + 
+  ggtitle("Scatterplot of Log Price against NPI")  
+```
+
+There seems to be a strong positive correlation between the log price and NPI, which means that the higher the NPI, the higher the price of the cigars are. 
+
+```{r}
+hist_boxplot(Cigar$pimin, freq = FALSE, main = "Histogram of Minimum Price in Adjoining States",
+             xlab = "PIMIN")
+lines(density(Cigar$pimin))
+```
+
+Examining the histogram of PIMIN, we also see that it is right-skewed, meaning that the median is higher than the mean and there only appears to be one outlier in the data. Since our predictor variable is already logged, we do not need to attempt to make this more normally distributed. 
+
+```{r}
+Cigar %>%
+ggplot(aes(x = pimin, y = lprice, colour = factor(state))) +
+  geom_point(alpha = 0.5) + 
+  xlab("PIMIN") + 
+  ylab("Log Price") +
+  guides(color = guide_legend(title = "State")) + 
+  ggtitle("Scatterplot of Log Price against PIMIN") 
+```
+
+We created a scatterplot to visualize the log of the price per pack of cigarettes against the minimum price in adjoining states per pack of cigarettes (PIMIN) by state. Looking at the scatter plot, all the states display a similar relationship between the log of the price per pack of cigarettes and PIMIN. More specifically, the scatterplot shows a strong, positive, nonlinear association between the log of the price per pack of cigarettes and PIMIN for all the states. 
+
+## 2.4: Correlation Plot
+
+```{r}
+corr_cig <- Cigar[, (names(Cigar) %in%  
+                        c('lprice', 'cpi', 'ndi', 'pimin'))] 
+res <- cor(corr_cig) 
+
+corrplot(res, method = 'number')
+```
+
+Based on the correlation heat map, all of the variables are extremely strongly positively correlated, however, variables that have the strongest correlation between them are log price and CPI with a 0.98 correlation coefficient. PIMIN and log Price have the second strongest correlation with a 0.96 correlation coefficient. NDI and log Price have the third strongest correlation with a correlation coefficient of 0.95. 
+
+## 2.5: Summary Statistics 
+
+```{r}
+summary(Cigar$lprice)
+```
+
+The five number summary for the log of price per pack of cigarettes reveals that the log price per pack of cigarette has a minimum of `$3.153`, a 1st quartile value of `$3.549`, a median of `$3.957`, a mean of `$4.060`, a 3rd quartile value of `$4.586`, and a maximum of `$5.308`. Since the **median is slightly lower than the mean, our data for log price would be slightly skewed to the right**.
+
+```{r}
+summary(Cigar$cpi)
+```
+
+The five number summary for the consumer price index (CPI) reveals that the CPI has a minimum of 30.6, a 1st quartile value of 38.8, a median of 62.9, a mean of 73.6, a 3rd quartile value of 107.6, and a maximum of 140.3. Since the **median is slightly lower than the mean, our data for CPI would be slightly skewed to the right**. 
+
+```{r}
+summary(Cigar$ndi)
+```
+
+The five number summary for the per capita disposable income (NDI) reveals that the NDI has a minimum of `$1,323`, a 1st quartile value of `$3,328`, a median of `$6,281`, a mean of `$7,525`, a 3rd quartile value of `$11,024`, and a maximum of `$23,074`. Since the **median is lower than the mean, our data for NDI would be skewed to the right**. 
+
+```{r}
+summary(Cigar$pimin)
+```
+
+The five number summary for the minimum price in adjoining states per pack of cigarettes (PIMIN) reveals that the PIMIN has a minimum of `$23.40`, a 1st quartile value of `$31.98`, a median of `$46.40`, a mean of `$62.90`, a 3rd quartile value of `$90.50`, and a maximum of `$178.50`. Since the **median is lower than the mean, our data for PIMIN would be skewed to the right**. 
+
+## 3
+
+### 3.1: 
+
+```{r}
+plotmeans(lprice ~ state, data = Cigar)
+```
+
+We plotted the means of the logged price separated by state and we can see that the log price of cigars in each state does differ for most states, so there does seem to exists heterogeneity in the model.
+
+```{r}
+Cigar_pd <- pdata.frame(Cigar, index = c("state", "year"))
+
+cigar_pool <- 
+  plm(lprice ~ cpi + ndi + pimin,
+    data = Cigar_pd, model = "pooling")
+summary(cigar_pool)
+```
+
+Our pooled regression mode is: $ln(PRICE) = 2.9927 + 0.0097076cpi + 1.584\times 10^{-5}ndi + 0.0037125pimin$
+
+In our pooled regression model, the intercept along with all the estimators are statistically significant. The intercept is approximately 2.99287, which suggests that the average change in price per pack of cigarettes is approximately 2.99% when CPI, NDI, and PIMIN equal to 0. The coefficient for CPI is 0.0097076, which indicates that a unit increase in the overall change in consumer prices leads to an approximately 0.971% increase in the price per pack of cigarettes, all else equal. The coefficient for NDI is 0.00001584, which indicates that a dollar increase in per capita disposable income leads to an approximately 0.00158% increase in price per pack of cigarettes, all else equal. Lastly, The coefficient for PIMIN is 0.0037125, which indicates that a dollar increase in the minimum price in adjoining states per pack of cigarettes leads to an approximately 0.371% increase in price per pack of cigarettes. The R-squared value is 0.97023, which suggests that 97.023% of the variation in the change in price per pack of cigarettes is explained by our pooled model. 
+
+```{r}
+bptest(cigar_pool)
+```
+
+Base on the p value of our bptest, our pooled model does show signs of heterogeneity as we reject the null that the variance of our errors is non-dependent on all of the explanatory variables.
+
+```{r}
+Cigar_pd$Pool_fitt <- fitted(cigar_pool)
+Cigar_pd$Pool_resid <- resid(cigar_pool)
+
+Cigar_pd %>%
+  ggplot(aes(y = Pool_resid, x = Pool_fitt)) +
+  geom_point() +
+  xlab("Fitted Values") + 
+  ylab("Residuals") +
+  ggtitle("Scatterplot of Residuals VS Fitted Values") +
+  geom_hline(yintercept = 0, col = "red")
+```
+
+Examining the residuals vs fitted values plot, we do see a slight trend and clustering at certain points in which as the values get larger, the residuals go more downward, indicating the presence of hetereoskedascity. 
+
+```{r}
+coeftest(cigar_pool, vcov = vcovHC(cigar_pool, type = "HC0", 
+         cluster = "group", adjust = T))
+```
+
+Correcting for the hetereoskedascity in our pooled mode, we see that the standard errors for the intercept become smaller, but the standard errors for our coefficients become larger. However, our coefficients are still significant, so correcting for hetereoskedascity did not invalidate any of the variables chosen. 
+
+```{r}
+cigar_fem <-
+ plm(lprice ~ cpi + ndi + pimin,
+    data = Cigar_pd, model = "within")
+
+summary(cigar_fem)
+```
+
+Our fixed effects model is: $ln(PRICE) = Intercept_{i} + 0.010304cpi + 1.8180\times 10^{-5}ndi + 0.0028259pimin$ where $i$ represents state.
+
+```{r}
+fixef(cigar_fem)
+```
+
+These are the values for the intercept where the header is $i$ and the value below it is the value of the intercept at that $i$ (state).
+
+In our Fixed Effects regression model, all the estimators are statistically significant. The coefficient for CPI is 0.010304, which indicates that a unit increase in the overall change in consumer prices leads to an approximately 1.03% increase in the price per pack of cigarettes, all else equal. The coefficient for NDI is 0.00001818, which indicates that a dollar increase in per capita disposable income leads to an approximately 0.00181% increase in price per pack of cigarettes, all else equal. Lastly, the coefficient for PIMIN is 0.0028259, which indicates that a dollar increase in the minimum price in adjoining states per pack of cigarettes leads to an approximately 0.283% increase in price per pack of cigarettes. The R-squared value is 0.98159, which suggests that 98.159% of the variation in the change in price per pack of cigarettes is explained by our Fixed Effects model.
+
+```{r}
+# FEM vs pool
+pFtest(cigar_fem, cigar_pool)
+```
+
+Performing a f-test across individuals between the pooled and fixed effects model, our p-value is well below the usual acceptable limits of significance, so we would reject the null that the coefficients are the same, i.e. fixed effects are preferred over the pooled model.
+
+```{r}
+cigar_rem <- 
+  plm(lprice ~ cpi + ndi + pimin,
+    data = Cigar_pd, model = "random")
+
+summary(cigar_rem)
+```
+
+Our random effects model is: $ln(PRICE) = 2.9872 + 0.010280cpi + 1.7834 \times 10^{-5}ndi + 0.0028930pimin$
+
+The variance of the random error in our model is $0.003404$ for the individual error, $0.006168$ for the idiosyncratic error, and the total variance is $0.009572$.
+
+In our Random Effects regression model, the intercept along with all the estimators are statistically significant. The intercept is approximately 2.9872, which suggests that the average change in price per pack of cigarettes is approximately 2.99% when CPI, NDI, and PIMIN equal to 0. The coefficient for CPI is 0.01028, which indicates that a unit increase in the overall change in consumer prices leads to an approximately 1.03% increase in the price per pack of cigarettes, all else equal. The coefficient for NDI is 0.000017834, which indicates that a dollar increase in per capita disposable income leads to an approximately 0.0018% increase in price per pack of cigarettes, all else equal. Lastly, The coefficient for PIMIN is 0.002893, which indicates that a dollar increase in the minimum price in adjoining states per pack of cigarettes leads to an approximately 0.29% increase in price per pack of cigarettes. The R-squared value is 0.98091, which suggests that 98.09% of the variation in the change in price per pack of cigarettes is explained by our Random Effects model.
+
+```{r}
+# REM vs Pool
+plmtest(cigar_rem, type = c("bp"))
+```
+
+In our BP test of the pooled model against the random effects model, the p-value is well below the usual acceptable limits of significance, so we would reject the null hypothesis that the variance of the error term is equal to 0. In other words, there is statistical evidence that there exists individual heterogeneity, which validates the use of the Random Effects model. 
+
+```{r}
+# FEM vs REM
+phtest(cigar_fem, cigar_rem)
+```
+
+In our Hausman test of the fixed effects model vs the random effects model, our p-value of 0.019 is below the 5% significance level, so we would reject the null that the Random Effects model is the preferred model. This implies that there is endogeneity present (i.e. the error term is correlated with the explanatory variables), therefore we should use the **Fixed Effects model**. 
+
+$ln(PRICE) = Intercept_{i} + 0.010304cpi + 1.8180\times 10^{-5}ndi + 0.0028259pimin$
+
+# II: Binary Models
+
+For the qualitative dependent variable model, we used “blackpoliticians” dataset in order to answer the economic/finance/business question with respect to our regression model: What variables causes legislators to respond to emails? In other words, what characteristics, whether it be the characteristics of the legislator itself or the characteristic of the person sending the email, would influence the legislator responding to an email. Our dataset was collected in 2013 from Broockman on a field experiment where the author sent fictional emails purportedly sent by Black people to legislators in the US. It is a data frame with 5,593 rows and 14 variables. In our model, our dependent variable is “responded”, which means that the legislator responded to email, and it is an indicator variable. Out of 13 independent variables, there are 6 indicator variables: leg_black (legislator receiving email is Black), treat_out (email is from out-of-district), nonblacknonwhite (legislator receiving email is neither Black nor White), leg_senator (legislator receiving email is a senator), leg_democrat (legislator receiving email is in the Democratic party), and south (legislator receiving email is in the Southern United States). The remaining 7 independent variables are continuous variables: totalpop (district population), medianhhincom (district median household income), black_medianhh (district median household income among Black people), white_medianhh (District median household income among White people), blackpercent (percentage of district that is Black), and urbanpercent (percentage of district that is urban). We disregarded the variable “statessquireindex”, which is state’s squire index, because there is a lack of information about this variable from google search and the dataset description itself. 
+
+```{r}
+data("black_politicians")
+
+head(black_politicians)
+```
+
+## 2
+
+### 2.1
+
+```{r}
+bp_totalpop <- black_politicians %>%
+  ggplot(mapping = aes(x = totalpop)) +
+  geom_boxplot() +
+  ggtitle("District Population") +
+  labs(x = "totalpop")
+
+bp_median <- black_politicians %>%
+  ggplot(mapping = aes(x = medianhhincom)) +
+  geom_boxplot() +
+  ggtitle("District Median Household Income") +
+  labs(x = "medianhhincom")
+
+bp_bmedian <- black_politicians %>%
+  ggplot(mapping = aes(x = black_medianhh)) +
+  geom_boxplot() +
+  ggtitle("Black Median Household Income") +
+  labs(x = "black_medianhh")
+
+bp_wmedian <- black_politicians %>%
+  ggplot(mapping = aes(x = white_medianhh)) +
+  geom_boxplot() +
+  ggtitle("White Median Household Income") +
+  labs(x = "white_medianhh")
+
+bp_blackp <- black_politicians %>%
+  ggplot(mapping = aes(x = blackpercent)) +
+  geom_boxplot() +
+  ggtitle("Percentage of District that is Black") +
+  labs(x = "blackpercent")
+
+bp_urbanp <- black_politicians %>%
+  ggplot(mapping = aes(x = urbanpercent)) +
+  geom_boxplot() +
+  ggtitle("Urban Percentage") +
+  labs(x = "urbanpercent")
+
+plot_grid(bp_totalpop, bp_median, bp_bmedian, bp_wmedian, bp_blackp, bp_urbanp, ncol = 2, nrow = 3)
+```
+
+The boxplot of district population, district median house income, black median house income, white median house income, percentage of district that is black are all extremely skewed to the right with multiple outliers, whereas, the percentage of the district that is urban is skewed to the left. We also see that there exists many outliers and we would have to remove them in order to solve the issue of skewness. 
+
+```{r}
+outliers <- 
+c(which(black_politicians$totalpop %in%
+          boxplot.stats(black_politicians$totalpop)$out),
+  which(black_politicians$medianhhincom %in% 
+          boxplot.stats(black_politicians$medianhhincom)$out),
+  which(black_politicians$black_medianhh %in% 
+          boxplot.stats(black_politicians$black_medianhh)$out),
+  which(black_politicians$white_medianhh %in%
+          boxplot.stats(black_politicians$white_medianhh)),
+  which(black_politicians$blackpercent %in%
+          boxplot.stats(black_politicians$blackpercent)))
+
+black_politicians_c <- black_politicians[-outliers, ]
+
+outliers1 <- 
+c(which(black_politicians_c$totalpop %in%
+          boxplot.stats(black_politicians_c$totalpop)$out),
+  which(black_politicians_c$medianhhincom %in% 
+          boxplot.stats(black_politicians_c$medianhhincom)$out),
+  which(black_politicians_c$black_medianhh %in% 
+          boxplot.stats(black_politicians_c$black_medianhh)$out),
+  which(black_politicians_c$white_medianhh %in%
+          boxplot.stats(black_politicians_c$white_medianhh)),
+  which(black_politicians_c$blackpercent %in%
+          boxplot.stats(black_politicians_c$blackpercent)))
+
+black_politicians_c1 <- black_politicians_c[-outliers1, ]
+
+outliers2 <- 
+c(which(black_politicians_c1$totalpop %in%
+          boxplot.stats(black_politicians_c1$totalpop)$out),
+  which(black_politicians_c1$medianhhincom %in% 
+          boxplot.stats(black_politicians_c1$medianhhincom)$out),
+  which(black_politicians_c1$black_medianhh %in% 
+          boxplot.stats(black_politicians_c1$black_medianhh)$out),
+  which(black_politicians_c1$white_medianhh %in%
+          boxplot.stats(black_politicians_c1$white_medianhh)),
+  which(black_politicians_c1$blackpercent %in%
+          boxplot.stats(black_politicians_c1$blackpercent)))
+
+black_politicians_c2 <- black_politicians_c1[-outliers2, ]
+
+outliers3 <- 
+c(which(black_politicians_c2$totalpop %in%
+          boxplot.stats(black_politicians_c2$totalpop)$out),
+  which(black_politicians_c2$medianhhincom %in% 
+          boxplot.stats(black_politicians_c2$medianhhincom)$out),
+  which(black_politicians_c2$black_medianhh %in% 
+          boxplot.stats(black_politicians_c2$black_medianhh)$out),
+  which(black_politicians_c2$white_medianhh %in%
+          boxplot.stats(black_politicians_c2$white_medianhh)),
+  which(black_politicians_c2$blackpercent %in%
+          boxplot.stats(black_politicians_c2$blackpercent)))
+
+black_politicians_c3 <- black_politicians_c2[-outliers3, ]
+
+outliers4 <- 
+c(which(black_politicians_c3$totalpop %in%
+          boxplot.stats(black_politicians_c3$totalpop)$out),
+  which(black_politicians_c3$medianhhincom %in% 
+          boxplot.stats(black_politicians_c3$medianhhincom)$out),
+  which(black_politicians_c3$black_medianhh %in% 
+          boxplot.stats(black_politicians_c3$black_medianhh)$out),
+  which(black_politicians_c3$white_medianhh %in%
+          boxplot.stats(black_politicians_c3$white_medianhh)),
+  which(black_politicians_c3$blackpercent %in%
+          boxplot.stats(black_politicians_c3$blackpercent)))
+
+black_politicians_c4 <- black_politicians_c3[-outliers4, ]
+
+outliers5 <- 
+c(which(black_politicians_c4$totalpop %in%
+          boxplot.stats(black_politicians_c4$totalpop)$out),
+  which(black_politicians_c4$medianhhincom %in% 
+          boxplot.stats(black_politicians_c4$medianhhincom)$out),
+  which(black_politicians_c4$black_medianhh %in% 
+          boxplot.stats(black_politicians_c4$black_medianhh)$out),
+  which(black_politicians_c4$white_medianhh %in%
+          boxplot.stats(black_politicians_c4$white_medianhh)),
+  which(black_politicians_c4$blackpercent %in%
+          boxplot.stats(black_politicians_c4$blackpercent)))
+
+black_politicians_c5 <- black_politicians_c4[-outliers5, ]
+nrow(black_politicians_c5)
+```
+
+After a few rounds of removing outliers, we still have 4,943 observations to work with and we may continue. 
+
+### 2.2
+
+```{r}
+response <- 
+black_politicians_c %>% 
+  ggplot(mapping = aes(x = responded)) +
+  geom_bar() +
+  ggtitle("Legislator responding to Emails") +
+  labs(x = "responded")
+
+legblack <- 
+black_politicians_c %>%
+  ggplot(mapping = aes(x = leg_black)) +
+  geom_bar() +
+  ggtitle("Black Legislators") +
+  labs(x = "leg_black")
+
+outod <- 
+black_politicians_c %>%
+  ggplot(mapping = aes(x = treat_out)) + 
+  geom_bar() +
+  ggtitle("Out of District Emails") +
+  labs(x = "treat_out")
+
+nbnw <- 
+black_politicians_c %>% 
+  ggplot(mapping = aes(x = nonblacknonwhite)) +
+  geom_bar() +
+  ggtitle("Legislator being Black nor White") +
+  labs(x = "nonblacknonwhite")
+
+legsen <- 
+black_politicians_c %>% 
+  ggplot(mapping = aes(x = leg_senator)) +
+  geom_bar() +
+  ggtitle("Legislator being a Senator") +
+  labs(x = "leg_senator")
+
+legdem <- 
+black_politicians_c %>% 
+  ggplot(mapping = aes(x = leg_democrat)) +
+  geom_bar() +
+  ggtitle("Legislator being Democratic") +
+  labs(x = "leg_democrat")
+
+south <- 
+black_politicians_c %>% 
+  ggplot(mapping = aes(x = south)) +
+  geom_bar() +
+  ggtitle("Legislator being from the South") +
+  labs(x = "south")
+
+plot_grid(response, legblack, outod, nrow = 2, ncol = 2)
+plot_grid(nbnw, legsen, legdem, south, nrow = 2, ncol = 2)
+```
+
+Using bar charts to examine our binary variables, we see that the variables with roughly around the same number of observations are treat_out, the email being out of district and leg_democrat, the legislator being democratic. The other variables do show a large amount of different observations, including leg_black, nonblacknonwhite, leg_senator, and south. 
+
+### 2.3
+
+```{r}
+library(Boruta)
+bor_res <- Boruta(responded ~., data = black_politicians_c5[, -c(1, 2, 9, 10, 11, 12, 13, 14)], doTrace = 1)
+attStats(bor_res)
+```
+
+We used the Boruta algorithm to perform feature selection and found that the variables for total population, median household income, black median household income, and the percentage of district that is black were confirmed; these attributes were deemed as important. On the other hand, the Boruta algorithm outputted white median household income as a tentative attribute, meaning that this variable may or may not be the best input depending on the model and other attributes. 
+
+```{r}
+library(leaps)
+ss <- regsubsets(responded ~ totalpop + medianhhincom + black_medianhh +
+                 white_medianhh + blackpercent + urbanpercent, 
+                 method = c("exhaustive"), nbest = 3, 
+                 data = black_politicians_c5)
+
+library(AER)
+subsets(ss, statistic = "cp", legend = F, main = "Mallows CP")
+# gives a group of variables that is needed for the model, the lower score is the best 
+```
+
+According to the Mallows CP model, model 2 (t-m) has the smallest Mallows' Cp value. Therefore, we would keep predictor variables total population and median household income. Taking both inputs from the Boruta Algorithm and Mallows CP, we decided to run with totalpop (total population) and medianhhincom (district median household income) as our continuous variables.
+
+```{r}
+hist_boxplot(black_politicians_c5$totalpop, freq = FALSE, 
+             main = "Histogram of Total Population",
+             xlab = "Total Population")
+lines(density(black_politicians_c5$totalpop))
+```
+
+The histogram and boxplot of total population is skewed to the right with the majority of the data concentrated at around 4, indicating most states have a population of around 4 million. 
+
+```{r}
+black_politicians_c5 %>%
+ggplot(aes(x = totalpop, y = responded, colour = factor(leg_black))) +
+  geom_point(alpha = 0.5) + 
+  xlab("Total Population") + 
+  ylab("Responded") + 
+  guides(color = guide_legend(title = "Legislator is Black")) + 
+  ggtitle("Scatterplot of Total Population against Responses")
+```
+
+Examining the scatter plot of the legislator responding vs the total population separated by if the legistlator is black, we see that there isn't a clear relationship between the two in the scatter plot, but we do see a lot of red, indicating that the legistlator is black, on both sides. 
+
+```{r}
+summary(black_politicians_c5$totalpop)
+```
+
+Since our population values are in the millions, the lowest population value in this data set is 302,600, the median population value is around 4 million and the maximum value is 22 million. With 25% of the data being below the value 2.6 million and 75% of the data being below 6.55 million. 
+
+```{r}
+hist_boxplot(black_politicians_c5$medianhhincom, freq = FALSE, 
+             main = "Histogram of Median Household Income",
+             xlab = "Median Household Income")
+lines(density(black_politicians_c5$medianhhincom))
+```
+
+The histogram is unimodal, slightly skewed to the right with majority of the data concentrated around median household incomes of `$35,000`.
+
+```{r}
+black_politicians_c5 %>%
+ggplot(aes(x = medianhhincom, y = responded, colour = factor(leg_black))) +
+  geom_point(alpha = 0.5) + 
+  xlab("Median Household Income") + 
+  ylab("Responded") + 
+  guides(color = guide_legend(title = "Legislator is Black")) + 
+  ggtitle("Scatterplot of District median Household Incomes")
+```
+
+```{r}
+summary(black_politicians_c5$medianhhincom)
+```
+
+Since our median household income value is in the 10,000s, the lowest median house income value in this data set is `$17,280`, the median household income value is `$39,670` and the maximum value is `$75,270`. With 25% of the data being below the value `$32,620` and 75% of the data being below `$49,710`. 
+
+## 3
+
+### 3.1 Linear Probability Model
+
+```{r}
+LPM <- lm(responded ~ totalpop + medianhhincom + leg_black + treat_out +
+            nonblacknonwhite + leg_senator + leg_democrat + south, 
+          data = black_politicians_c5)
+
+summary(LPM)
+```
+
+The results for our Linear Probability model show that the estimators median household income, the legislator being black, and non black nor white are highly insignificant. The estimator for the legislator being a senator was found to be insignificant at the 5% level. On the other hand, the intercept along with the remaining estimators are all significant. The coefficient for total population is 0.008909, which suggests that an additional person in the district population increases the probability of the legislator responding to emails by 0.891%, all else equal. The negative sign in front of the coefficient for treat_out indicates that the email being out-of-district decreases the probability of the legislator responding to emails by 27.18%, all else equal. The negative sign in front of the coefficient for leg_democrat indicates that the probability of the legislator responding to emails decreases by 4.5% if they are in the Democratic party, all else equal. The negative sign in front of the coefficient for south indicates the probability of the legislator responding to emails by decreases 5.55% if they are from southern United States, all else equal. Lastly, the R-squared value is 0.09218, which means that 9.22% of the variation in whether or not legislators respond to emails is explained by the Linear Probability model. 
+
+```{r}
+LPM2 <- lm(responded ~ totalpop + medianhhincom + treat_out + leg_democrat 
+           + south,  data = black_politicians_c5)
+summary(LPM2)
+```
+
+We re-estimated our Linear Probability Model after noticing that the estimates for black legislators, legislators that are senators, and legislators that were neither white nor black were insignificant. The estimate for median household income remains insignificant, so we are removing this variable from our model. The remaining estimates are still statistically significant and do not appear to have changed significantly in value from our original Linear Probability Model. Lastly, the R-squared value is now 0.09126, which means that 9.13% of the variation in whether or not legislators respond to emails is explained by the Linear Probability model. This is lower than the R-squared value of our previous model, 9.22%, possibly because the number of explanatory variables decreased after our re-estimation.
+
+```{r}
+LPM3 <- lm(responded ~ totalpop + treat_out + leg_democrat 
+           + south,  data = black_politicians_c5)
+
+LPM3R <- coeftest(LPM3, vcov = hccm(LPM3, type = "hc1"))
+LPM3R
+
+AIC(LPM3)
+```
+
+In our final re-estimation of the Linear Probability Model, we regress the variable “responded” (legislators responded to emails) on “totalpop” (district population), “treat_out” (email is from out-of-district), “leg_democrat” (legislators in the Democratic Party), and “south” (legislators from southern United States). All of these variables are statically significant as their p-values are extremely small. Lastly, the R-squared value is now 0.09094, which means that 9.10% of the variation in whether or not legislators respond to emails is explained by the Linear Probability model. This is slightly lower than the R-squared value of our previous model, 9.13%, possibly because the number of explanatory variables decreased after our re-estimation. We also perform an AIC calculation on the model and received a score of 6,596. We will be using this score to compare with the probit and logit models. 
+
+```{r}
+linearHypothesis(LPM3, c("treat_out = 0", 
+                         "leg_democrat = 0",
+                         "south = 0"),
+                 vcov. = vcovHC(LPM3, type = "HC1"))
+```
+
+Examining further if our binary variables are significant, we run a linear hypothesis code to see if all three variables equal 0. Since we reject the null that the variables “treat_out,” “leg_democrat,” and “south” equal to zero in the linear hypothesis test, we determined that these variables are statistically significant and should be included in our model. Our final linear probability model is: $Responded = 0.539 + 0.00994totalpop + -0.27161treatout + -0.05226legdemocrat + -0.06491south$
+
+```{r}
+LPM_predict <- 
+round(predict(LPM3, newdata = data.frame(
+  totalpop = black_politicians_c5$totalpop,
+  treat_out = black_politicians_c5$treat_out,
+  leg_democrat = black_politicians_c5$leg_democrat,
+  south = black_politicians_c5$south)))
+```
+
+```{r}
+LPM_results <- (table(LPM_predict == 1, black_politicians_c5$responded))
+
+LPM_results
+
+c(LPM_results[1, 1] / sum(LPM_results[, 1]), 
+  LPM_results[2, 2] / sum(LPM_results[, 2]))
+```
+
+Using the "predict" function, we are able to run our linear probability model. We decided to use a threshold of 50%, meaning that if it above or equal to 50%, 0.50, we consider that 1 and the legislator responded, otherwise it is 0 and the legislator did not respond. The accuracy of the model is that if it is FALSE and 0 in the matrix or TRUE and 1, the model predicted it accurately. We see that our final linear probability model predicted 0 correctly 1,988 times and 1 correctly 1,201 times. Examining the percentage it got correct, it was right 69.68% of the time predicting 0s, and 57.46% of the time predicting 1s. 
+
+```{r}
+Results_LPM <- data.frame(LPM_results)
+
+Results_LPM %>%
+  ggplot(aes(x = Var2, y = Freq, fill = Var1)) +
+  geom_bar(stat = "identity", position = position_dodge(), alpha = 0.75) +
+  labs(x = "Value") +
+  guides(fill = guide_legend(title = "Predicted Value")) +
+  ggtitle("Linear Probability Model Prediction")
+```
+
+This bar chart demonstrates the accuracy of our Linear Probability Model, to prevent confusion, the predicated values are noted by FALSE or TRUE, where FALSE corresponds to predicting 0 and TRUE corresponds to predicting 1. Here, we see that out linear probability model better predicts 0 values than predicting 1 values. 
+
+```{r}
+margins(LPM3)
+```
+
+For our linear probability model, the average marginal effect of total population, totalpop, is 0.009945402 or 0.99%, the average marginal effect of an email being sent outside the district is, treat_out, is -0.2718125 or -27.18%, the average marginal effect of the legislator being democratic, leg_democrat, is -0.05225774 or -5.22%, and the average marginal effect of the legislator being from the south, south, is -0.0649 or -6.49%.
+
+### 3.2 Probit Model
+
+```{r}
+PM <- glm(responded ~ totalpop + treat_out + leg_democrat + south, 
+          data = black_politicians_c5, family = binomial(link = "probit"))
+
+summary(PM)
+```
+
+In this probit model, we regressed the variable “responded” (legislators responded to emails) on “totalpop” (district population), “treat_out” (email is from out-of-district), “leg_democrat” (legislators in the Democratic Party), and “south” (legislators from southern United States). All estimates are statistically significant as their p-values are extremely small. The AIC score for our model is 6,282, which is lower than our linear probability model, which indicates our probit model is a better model. Our probit model is $responded = \Phi(0.09943 + 0.02714totalpop + -0.72047treat\_out + -0.14529leg\_democrat + -0.17975south)$
+
+```{r}
+linearHypothesis(PM, c("treat_out = 0", 
+                       "leg_democrat = 0",
+                       "south = 0"))
+```
+
+Further testing to see if our binary variables (treat_out, leg_democrat, south) are all insignificant, we see that our p-value is extremely small, indicating that our binary variables are significant enough to be in the model. 
+
+```{r}
+PM_predict <- 
+round(pnorm(predict(PM, newdata = data.frame(
+  totalpop = black_politicians_c5$totalpop,
+  treat_out = black_politicians_c5$treat_out,
+  leg_democrat = black_politicians_c5$leg_democrat,
+  south = black_politicians_c5$south))))
+```
+
+```{r}
+PM_results <- 
+table(PM_predict == 1, black_politicians_c5$responded)
+
+PM_results
+
+c(PM_results[1, 1] / sum(PM_results[, 1]), 
+  PM_results[2, 2] / sum(PM_results[, 2]))
+```
+
+Using the predict and pnorm function, since the probit model follows a normally distributed CDF, we predicted the results and compared them with the actual results into a matrix. The FALSE and 0 section indicates that our probit model predicted 0 values correctly using a 50% threshhold, and the TRUE and 1 section indicates that the probit model predicted 1 values correctly using a 50% threshhold. We also formatted into percentage form and see that our probit model predicted 0 values with 70.77% accuracy and 1 values with 56.27% accuracy. 
+
+```{r}
+Results_PM <- data.frame(PM_results)
+
+Results_PM %>%
+  ggplot(aes(x = Var2, y = Freq, fill = Var1)) +
+  geom_bar(stat = "identity", position = position_dodge(), alpha = 0.75) +
+  labs(x = "Value") +
+  guides(fill = guide_legend(title = "Predicted Value")) +
+  ggtitle("Probit Model Prediction")
+```
+
+Like before, our probit model predicts FALSE if it thinks the value is 0, and TRUE if it thinks the value is 1. In the bar chart, we see that our probit model better predicts values of 0 rather than values of 1. 
+
+```{r}
+margins(PM)
+```
+
+The average marginal effect for total population, totalpop, is 0.0098, or 0.98% increase in the chances of having a legislator responding. The average marginal effect at the binary variable if the email was sent out of district, treat_out, is -0.2611, or -26.11% change in the chances of having a legislator responding. The average marginal effect if the legislator is democratic, leg_democrat, is -0.0526 or -5.26% change in the chances of having a legislator responding. The average marginal effect if the legislator is from the south, south, is -0.0651, or -6.51% change in the chances of having a legislator responding. 
+
+### 3.3 Logit Model
+
+```{r}
+LM <- glm(responded ~ totalpop + treat_out + leg_democrat + south, 
+          data = black_politicians_c5, family = binomial(link = "logit"))
+
+summary(LM)
+```
+
+In the last model we are testing, we are using the logit model, in order to predict the results. In our logit model, the equation is $responded = \Lambda(0.15863 + 0.04422totalpop + -1.16709treat\_out + -0.23555leg\_democrat + -0.29301south)$. Our AIC score is 6,282.7, which is only a little bit higher than our probit model, so these two models are extremely close in terms of how good the model is. 
+
+```{r}
+linearHypothesis(LM, c("treat_out = 0", 
+                       "leg_democrat = 0",
+                       "south = 0"))
+```
+
+Going further, we run a linear hypothesis on the three binary variables (treat_out, leg_democrat, south) to see if they are all equal to 0 and since the p value is extremely low, we reject that they are insignificant. 
+
+```{r}
+LM_predict <- 
+round(plogis(predict(LM, newdata = data.frame(
+  totalpop = black_politicians_c5$totalpop,
+  treat_out = black_politicians_c5$treat_out,
+  leg_democrat = black_politicians_c5$leg_democrat,
+  south = black_politicians_c5$south))))
+```
+
+```{r}
+LM_results <- 
+table(LM_predict == 1, black_politicians_c5$responded)
+
+LM_results
+
+c(LM_results[1, 1] / sum(LM_results[, 1]), 
+  LM_results[2, 2] / sum(LM_results[, 2]))
+```
+
+Using a threshold of 50% and the plogis function since the logit model follows a logistic function, indicating that it has fatter tails than the normal distribution in the probit model, we see how accurate our logit model predicted the output. The FALSE and 0 section predicts the 0 values correctly and the TRUE and 1 section predicts the 1 values correctly. We see that the logit model predicted 0 correctly 2,019 times and 1 correctly 1,175 times. The model predicted 0 with 70.77% accuracy and 1 with 56.22% accuracy. 
+
+```{r}
+Results_LM <- data.frame(LM_results)
+
+Results_LM %>%
+  ggplot(aes(x = Var2, y = Freq, fill = Var1)) +
+  geom_bar(stat = "identity", position = position_dodge(), alpha = 0.75) +
+  labs(x = "Value") +
+  guides(fill = guide_legend(title = "Predicted Value")) +
+  ggtitle("Logit Model Prediction")
+
+```
+
+Like before, our logit model predicts FALSE if it thinks the value is 0, and TRUE if it thinks the value is 1. As we can see in the bar chart, our logit model predicts relatively the same as our probit model since it better predicts values of 0. 
+
+```{r}
+margins(LM)
+```
+
+The average marginal effect of total population, totalpop, is 0.0098, or 0.98% increase in the chance of getting a response in the email for every 1 unit increase in totalpop, the average marginal effect of emails received from out of district, treat_out, is -0.2589, or -25.89% change in the chance of getting a response to the email if the email was from out of district, the average marginal effect of the legislator being democratic, leg_democrat, is -0.0522, or -5.22% change in the chance of getting a response to the email if the legislator is democratic, and the average marginal effect of the legislator being from the south is -0.0650, or -6.50% change in the chance of getting a response to the email if the legislator is from the south. 
+
+## 4
+
+Finally comparing our models, we see that our probit model, $responded = \Phi(0.09943 + 0.02714totalpop + -0.72047treat\_out + -0.14529leg\_democrat + -0.17975south)$, is the best as it had the lowest AIC at 6282.3. This was the tie-breaker between choosing the probit or the logit model as both models predicted the same outcomes relatively closely.
+
+
