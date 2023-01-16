@@ -1,0 +1,1141 @@
+---
+title: "Foundations Project"
+author: "Aaron Chien"
+date: "6/13/2022"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r create table}
+rm(list = ls())
+
+aug_oct <- read.csv("venmo_statement.csv")
+aug_oct <- aug_oct[c(-(1:3), -nrow(aug_oct)), c(-1, -(10:19))]
+
+oct_dec <- read.csv("venmo_statement (1).csv")
+oct_dec <- oct_dec[c(-(1:3), -nrow(oct_dec)), c(-1, -(10:19))]
+
+dec_feb <- read.csv("venmo_statement (2).csv")
+dec_feb <- dec_feb[c(-(1:3), -nrow(dec_feb)), c(-1, -(10:19))]
+
+feb_apr <- read.csv("venmo_statement (3).csv")
+feb_apr <- feb_apr[c(-(1:3), -nrow(feb_apr)), c(-1, -(10:19))]
+
+apr_jun <- read.csv("venmo_statement (4).csv")
+apr_jun <- apr_jun[c(-(1:3), -nrow(apr_jun)), c(-1, -(10:19))]
+venmo <- rbind(aug_oct, oct_dec, dec_feb, feb_apr, apr_jun)
+rownames(venmo) <- 1:nrow(venmo)
+
+colnames(venmo) <- c("ID", "Date", "Type", "Status", "Description", "From", "To", "Amount")
+
+old_venmo <- venmo
+```
+
+```{r create function to sort description}
+table_filter <- function(x, y, z) {
+  false_default <- logical(length(x))
+  # starts off with a logical vector
+  for (i in y) {
+  # for every value in y, y should be a numeric vector
+  true_false <- unlist(lapply(x, FUN = function(x){x %in% z[i]}))
+  # apply to a vector of characters if it contains the character from the y index of z
+  output <- false_default | true_false
+  # starts a loop of True False
+  false_default <- output
+  # puts in the old loop with the new one to loop with 
+  }
+  output
+}
+```
+
+```{r rose}
+descr <- names(table(venmo$Description))
+
+rose <- lapply(X = strsplit(descr, split = " "), FUN = function(x){"rose" %in% x})
+
+roses <- lapply(X = strsplit(descr, split = " "), FUN = function(x){"roses" %in% x})
+
+Rose <- lapply(X = strsplit(descr, split = " "), FUN = function(x){"Rose" %in% x})
+
+Roses <- lapply(X = strsplit(descr, split = " "), FUN = function(x){"Roses" %in% x})
+
+rosesl <- lapply(X = strsplit(descr, split = " "), FUN = function(x){"roses!" %in% x})
+
+flowers <- lapply(X = strsplit(descr, split = " "), FUN = function(x){"flowers" %in% x})
+
+Flowers <- lapply(X = strsplit(descr, split = " "), FUN = function(x){"Flowers" %in% x})
+
+Rosesl <- lapply(X = strsplit(descr, split = " "), FUN = function(x){"Roses!" %in% x})
+
+foundations_rose <- c(which(unlist(rose)), 
+                      which(unlist(roses)),
+                      which(unlist(Rose)),
+                      which(unlist(Roses)),
+                      which(unlist(rosesl)),
+                      which(unlist(flowers)),
+                      which(unlist(Flowers)),
+                      which(unlist(Rosesl)))
+
+rose_fundraisers <- table_filter(x= venmo$Description, y = foundations_rose, z = descr)
+
+venmo$Description[rose_fundraisers] <- "Rose Fundraiser"
+```
+
+```{r dare squares}
+descr1 <- names(table(venmo$Description))
+
+dare <- lapply(X = strsplit(descr1, split = " "), FUN = function(x){"dare" %in% x})
+
+Dare <- lapply(X = strsplit(descr1, split = " "), FUN = function(x){"Dare" %in% x})
+
+Date <- lapply(X = strsplit(descr1, split = " "), FUN = function(x){"Date" %in% x})
+
+foundations_dare <- c(which(unlist(dare)), which(unlist(Dare)), which(unlist(Date)))
+
+dare_fundraisers <- table_filter(x= venmo$Description, y = foundations_dare, z = descr1)
+
+venmo$Description[dare_fundraisers] <- "LSHIP Dare Square"
+```
+
+```{r Teaspoon fundraiser}
+descr2 <- names(table(venmo$Description))
+
+Boba <- lapply(X = strsplit(descr2, split = " "), FUN = function(x) {"Boba" %in% x})
+
+boba <- lapply(X = strsplit(descr2, split = " "), FUN = function(x) {"boba" %in% x})
+
+Ba <- lapply(X = strsplit(descr2, split = " "), FUN = function(x) {"Ba" %in% x})
+
+boba_ <- lapply(X = strsplit(descr2, split = " "), FUN = function(x) {"boba:" %in% x})
+
+BOBAAA <- lapply(X = strsplit(descr2, split = " "), FUN = function(x) {"BOBAAAA" %in% x})
+
+bober <- lapply(X = strsplit(descr2, split = " "), FUN = function(x) {"bober" %in% x})
+
+teaspoon <- lapply(X = strsplit(descr2, split = " "), FUN = function(x) {"teaspoon" %in% x})
+
+Teaspoon <- lapply(X = strsplit(descr2, split = " "), FUN = function(x) {"Teaspoon" %in% x})
+
+tea <- lapply(X = strsplit(descr2, split = " "), FUN = function(x) {"tea" %in% x})
+
+tspoon <- lapply(X = strsplit(descr2, split = " "), FUN = function(x) {"tspoon" %in% x})
+
+jasmine <- lapply(X = strsplit(descr2, split = " "), FUN = function(x) {"jasmine" %in% x})
+
+Jasmine <- lapply(X = strsplit(descr2, split = " "), FUN = function(x) {"Jasmine" %in% x})
+
+booobbaaaa <- lapply(X = strsplit(descr2, split = " "), FUN = function(x) {"booobbaaaa" %in% x})
+
+bobes <- lapply(X = strsplit(descr2, split = " "), FUN = function(x) {"bobes" %in% x})
+
+bobal <- lapply(X = strsplit(descr2, split = " "), FUN = function(x) {"boba!" %in% x})
+
+Bob <- lapply(X = strsplit(descr2, split = " "), FUN = function(x) {"Bob" %in% x})
+
+Ba <- lapply(X = strsplit(descr2, split = " "), FUN = function(x) {"Ba" %in% x})
+
+preorder <- lapply(X = strsplit(descr2, split = " "), FUN = function(x) {"preorder" %in% x})
+
+`pre-order` <- lapply(X = strsplit(descr2, split = " "), FUN = function(x) {"pre-order" %in% x})
+
+bobi <- lapply(X = strsplit(descr2, split = " "), FUN = function(x) {"bobi" %in% x})
+
+BOBA <- lapply(X = strsplit(descr2, split = " "), FUN = function(x) {"BOBA" %in% x})
+
+foundations_boba <- c(which(unlist(Boba)), 
+                      which(unlist(boba)),
+                      which(unlist(Ba)),
+                      which(unlist(boba_)),
+                      which(unlist(BOBAAA)),
+                      which(unlist(bober)),
+                      which(unlist(teaspoon)),
+                      which(unlist(Teaspoon)),
+                      which(unlist(tea)),
+                      which(unlist(tspoon)),
+                      which(unlist(jasmine)),
+                      which(unlist(Jasmine)),
+                      which(unlist(booobbaaaa)),
+                      which(unlist(bobes)),
+                      which(unlist(bobal)),
+                      which(unlist(Bob)),
+                      which(unlist(Ba)),
+                      which(unlist(preorder)),
+                      which(unlist(`pre-order`)),
+                      which(unlist(bobi)),
+                      which(unlist(BOBA)))
+
+boba_fundraiser <- table_filter(x = venmo$Description, y = foundations_boba, z = descr2)
+
+venmo$Description[boba_fundraiser] <- "Teaspoon Fundraiser"
+```
+
+```{r Pie Fundraiser}
+descr3 <- names(table(venmo$Description))
+
+Pie <- lapply(X = strsplit(descr3, split = " "), FUN = function(x) {"Pie" %in% x})
+
+Pies <- lapply(X = strsplit(descr3, split = " "), FUN = function(x) {"Pies" %in% x})
+
+pie <- lapply(X = strsplit(descr3, split = " "), FUN = function(x) {"pie" %in% x})
+
+pies <- lapply(X = strsplit(descr3, split = " "), FUN = function(x) {"pies" %in% x})
+
+Chocolate <- lapply(X = strsplit(descr3, split = " "), FUN = function(x) {"Chocolate" %in% x})
+
+eggs <- lapply(X = strsplit(descr3, split = " "), FUN = function(x) {"eggs" %in% x})
+
+chocolate <- lapply(X = strsplit(descr3, split = " "), FUN = function(x) {"chocolate" %in% x})
+
+Pieeee <- lapply(X = strsplit(descr3, split = " "), FUN = function(x) {"Pieeee" %in% x})
+
+Pieing <- lapply(X = strsplit(descr3, split = " "), FUN = function(x) {"Pieing" %in% x})
+
+pieing <- lapply(X = strsplit(descr3, split = " "), FUN = function(x) {"pieing" %in% x})
+
+Cream <- lapply(X = strsplit(descr3, split = " "), FUN = function(x) {"Cream" %in% x})
+
+pi <- lapply(X = strsplit(descr3, split = " "), FUN = function(x) {"pi" %in% x})
+
+piesa <- lapply(X = strsplit(descr3, split = " "), FUN = function(x) {"piesa" %in% x})
+
+PIE <- lapply(X = strsplit(descr3, split = " "), FUN = function(x) {"PIE" %in% x})
+
+PIEEEE <- lapply(X = strsplit(descr3, split = " "), FUN = function(x) {"PIEEEE" %in% x})
+
+Pieeeee <- lapply(X = strsplit(descr3, split = " "), FUN = function(x) {"Pieeeee" %in% x})
+
+cream <- lapply(X = strsplit(descr3, split = " "), FUN = function(x) {"cream" %in% x})
+foundations_pie <- c(which(unlist(Pie)), 
+                     which(unlist(Pies)), 
+                     which(unlist(pie)), 
+                     which(unlist(pies)), 
+                     which(unlist(Chocolate)),
+                     which(unlist(eggs)),
+                     which(unlist(chocolate)), 
+                     which(unlist(Pieeee)), 
+                     which(unlist(Pieing)), 
+                     which(unlist(pieing)),
+                     which(unlist(Cream)),
+                     which(unlist(pi)),
+                     which(unlist(piesa)),
+                     which(unlist(PIE)),
+                     which(unlist(PIEEEE)),
+                     which(unlist(Pieeeee)),
+                     which(unlist(cream)))
+
+pies_fundraiser <- table_filter(x = venmo$Description, 
+                                y = foundations_pie, 
+                                z = descr3)
+
+which(venmo$Description == "reimbursement from pies\n(please check your messages from Priscilla Tang of FC finance)")
+venmo$Description[pies_fundraiser] <- "Pie Fundraiser"
+
+venmo$Description[679] <- "Pie Fundraiser"
+```
+
+```{r Krispy Kreme Fundraiser}
+descr4 <- names(table(venmo$Description))
+
+donuts <- lapply(X = strsplit(descr4, split = " "), FUN = function(x) {"donuts" %in% x})
+
+Donughts <- lapply(X = strsplit(descr4, split = " "), FUN = function(x) {"Donughts" %in% x})
+
+donut <- lapply(X = strsplit(descr4, split = " "), FUN = function(x) {"donut" %in% x})
+
+Donut <- lapply(X = strsplit(descr4, split = " "), FUN = function(x) {"Donut" %in% x})
+
+donutl <- lapply(X = strsplit(descr4, split = " "), FUN = function(x) {"donut!" %in% x})
+
+Donutl <- lapply(X = strsplit(descr4, split = " "), FUN = function(x) {"Donut!" %in% x})
+
+Donuts <- lapply(X = strsplit(descr4, split = " "), FUN = function(x) {"Donuts" %in% x})
+
+Donutsss <- lapply(X = strsplit(descr4, split = " "), FUN = function(x) {"Donutsss" %in% x})
+
+Doughnut <- lapply(X = strsplit(descr4, split = " "), FUN = function(x) {"Doughnut" %in% x})
+
+Doughnuts <- lapply(X = strsplit(descr4, split = " "), FUN = function(x) {"Doughnuts" %in% x})
+
+doughnut <- lapply(X = strsplit(descr4, split = " "), FUN = function(x) {"doughnut" %in% x})
+
+Donation <- lapply(X = strsplit(descr4, split = " "), FUN = function(x) {"Donation" %in% x})
+
+zip <- lapply(X = strsplit(descr4, split = " "), FUN = function(x) {"zip" %in% x})
+
+foundations_doughnut <- c(which(unlist(donuts)), 
+                          which(unlist(Donughts)),
+                          which(unlist(donut)),
+                          which(unlist(Donut)),
+                          which(unlist(donutl)),
+                          which(unlist(Donutl)),
+                          which(unlist(Donuts)),
+                          which(unlist(Donutsss)),
+                          which(unlist(Doughnut)),
+                          which(unlist(Doughnuts)),
+                          which(unlist(doughnut)),
+                          which(unlist(Donation)),
+                          which(unlist(zip)))
+
+doughnut_fundraiser <- table_filter(x = venmo$Description,
+                                    y = foundations_doughnut,
+                                    z = descr4)
+
+venmo$Description[doughnut_fundraiser] <- "Krispy Kreme Fundraiser"
+```
+
+```{r Valentine Grams Fundraiser}
+descr5 <- names(table(venmo$Description))
+
+gram <- lapply(X = strsplit(descr5, split = " "), FUN = function(x) {"gram" %in% x})
+
+Bag <- lapply(X = strsplit(descr5, split = " "), FUN = function(x) {"Bag" %in% x})
+
+`be mine` <- lapply(X = strsplit(descr5, split = " "), FUN = function(x) {"be mine" %in% x})
+
+bear <- lapply(X = strsplit(descr5, split = " "), FUN = function(x) {"bear" %in% x})
+
+grams <- lapply(X = strsplit(descr5, split = " "), FUN = function(x) {"grams" %in% x})
+
+Gram <- lapply(X = strsplit(descr5, split = " "), FUN = function(x) {"Gram" %in% x})
+
+GRAM <- lapply(X = strsplit(descr5, split = " "), FUN = function(x) {"GRAM" %in% x})
+
+Grams <- lapply(X = strsplit(descr5, split = " "), FUN = function(x) {"Grams" %in% x})
+
+Gram_ <- lapply(X = strsplit(descr5, split = " "), FUN = function(x) {"Gram:" %in% x})
+
+Valentine <- lapply(X = strsplit(descr5, split = " "), FUN = function(x) {"Valentine" %in% x})
+
+valentine_s <- lapply(X = strsplit(descr5, split = " "), FUN = function(x) {"valentine's" %in% x})
+
+valentines <- lapply(X = strsplit(descr5, split = " "), FUN = function(x) {"valentines" %in% x})
+
+Valentines <- lapply(X = strsplit(descr5, split = " "), FUN = function(x) {"Valentines" %in% x})
+
+vgrams <- lapply(X = strsplit(descr5, split = " "), FUN = function(x) {"vgrams!" %in% x})
+
+`valentine's` <- lapply(X = strsplit(descr5, split = " "), FUN = function(x) {"valentine’s" %in% x})
+
+mine <- lapply(X = strsplit(descr5, split = " "), FUN = function(x) {"mine" %in% x})
+
+`v-gram` <- lapply(X = strsplit(descr5, split = " "), FUN = function(x) {"v-gram" %in% x})
+
+grams_ <- lapply(X = strsplit(descr5, split = " "), FUN = function(x) {"grams:" %in% x})
+
+foundations_valentines <- c(which(unlist(gram)), 
+                            which(unlist(Bag)),
+                            which(unlist(`be mine`)),
+                            which(unlist(bear)),
+                            which(unlist(grams)),
+                            which(unlist(Gram)),
+                            which(unlist(GRAM)),
+                            which(unlist(Grams)),
+                            which(unlist(Gram_)),
+                            which(unlist(Valentine)),
+                            which(unlist(valentine_s)),
+                            which(unlist(valentines)),
+                            which(unlist(Valentines)),
+                            which(unlist(vgrams)),
+                            which(unlist(`valentine's`)),
+                            which(unlist(mine)),
+                            which(unlist(`v-gram`)),
+                            which(unlist(grams_)))
+
+valentines_fundraiser <- table_filter(x = venmo$Description,
+                                      y = foundations_valentines,
+                                      z = descr5)
+
+venmo$Description[valentines_fundraiser] <- "Valentines Gram Fundraiser"
+```
+
+```{r LSHIP Jacket}
+descr6 <- names(table(venmo$Description))
+
+jacket <- lapply(X = strsplit(descr6, split = " "), FUN = function(x) {"jacket" %in% x})
+
+Jacket <- lapply(X = strsplit(descr6, split = " "), FUN = function(x) {"Jacket" %in% x})
+
+Jackets <- lapply(X = strsplit(descr6, split = " "), FUN = function(x) {"Jackets" %in% x})
+
+lship_jackets <- c(which(unlist(jacket)), 
+                   which(unlist(Jacket)), 
+                   which(unlist(Jackets)))
+
+jackets_lship <- table_filter(x = venmo$Description,
+                              y = lship_jackets,
+                              z = descr6)
+
+venmo$Description[jackets_lship] <- "LSHIP Jackets"
+```
+
+```{r Wintensive Shirts}
+descr7 <- names(table(venmo$Description))
+
+wintensive <- lapply(X = strsplit(descr7, split = " "), FUN = function(x) {"wintensive" %in% x})
+
+intensive <- lapply(X = strsplit(descr7, split = " "), FUN = function(x) {"intensive" %in% x})
+
+Wintensive <- lapply(X = strsplit(descr7, split = " "), FUN = function(x) {"Wintensive" %in% x})
+
+WINTENSIVEEEEE <- lapply(X = strsplit(descr7, split = " "), FUN = function(x) {"WINTENSIVEEEEE" %in% x})
+
+Winwin <- lapply(X = strsplit(descr7, split = " "), FUN = function(x) {"Winwin" %in% x})
+
+WINTENSIVE <- lapply(X = strsplit(descr7, split = " "), FUN = function(x) {"WINTENSIVE" %in% x}) 
+
+foundations_wintensive <- c(which(unlist(wintensive)),
+                            which(unlist(intensive)),
+                            which(unlist(Wintensive)),
+                            which(unlist(WINTENSIVEEEEE)),
+                            which(unlist(Winwin)),
+                            which(unlist(WINTENSIVE)))
+
+wintensive_shirts <- table_filter(x = venmo$Description,
+                                  y = foundations_wintensive, 
+                                  z= descr7)
+
+venmo$Description[wintensive_shirts] <- "Wintensive Merch"
+```
+
+```{r Foundations Shirt}
+descr8 <- names(table(venmo$Description))
+
+shirt <- lapply(X = strsplit(descr8, split = " "), FUN = function(x) {"shirt" %in% x})
+
+Shirt <- lapply(X = strsplit(descr8, split = " "), FUN = function(x) {"Shirt" %in% x})
+
+shirtsl <- lapply(X = strsplit(descr8, split = " "), FUN = function(x) {"shirts!" %in% x})
+
+`t-shirt` <- lapply(X = strsplit(descr8, split = " "), FUN = function(x) {"t-shirt" %in% x})
+
+`T-shirt` <- lapply(X = strsplit(descr8, split = " "), FUN = function(x) {"T-shirt" %in% x})
+
+shirts <- lapply(X = strsplit(descr8, split = " "), FUN = function(x) {"shirts" %in% x})
+
+foundations_tshirts <- c(which(unlist(shirt)),
+                         which(unlist(Shirt)),
+                         which(unlist(shirtsl)),
+                         which(unlist(`t-shirt`)),
+                         which(unlist(`T-shirt`)),
+                         which(unlist(shirts)))
+
+shirts_merch <- table_filter(x = venmo$Description,
+                             y = foundations_tshirts,
+                             z = descr8)
+
+venmo$Description[shirts_merch] <- "Foundations Shirts Merch"
+```
+
+```{r Foundations Sticker}
+descr9 <- names(table(venmo$Description))
+
+sticker <- lapply(X = strsplit(descr9, split = " "), FUN = function(x) {"sticker" %in% x})
+
+Sticker <- lapply(X = strsplit(descr9, split = " "), FUN = function(x) {"Sticker" %in% x})
+
+`sticker!!!` <- lapply(X = strsplit(descr9, split = " "), FUN = function(x) {"sticker!!!" %in% x})
+
+stickers <- lapply(X = strsplit(descr9, split = " "), FUN = function(x) {"stickers" %in% x})
+
+foundations_sticker <- c(which(unlist(sticker)),
+                         which(unlist(Sticker)),
+                         which(unlist(`sticker!!!`)),
+                         which(unlist(stickers)))
+
+sticker_merch <- table_filter(x = venmo$Description,
+                              y = foundations_sticker,
+                              z = descr9)
+
+venmo$Description[sticker_merch] <- "Foundations Sticker Merch"
+```
+
+```{r Foundations Totes}
+descr10 <- names(table(venmo$Description))
+
+totes <- lapply(X = strsplit(descr10, split = " "), FUN = function(x) {"totes" %in% x})
+
+Tote <- lapply(X = strsplit(descr10, split = " "), FUN = function(x) {"Tote" %in% x})
+
+tote <- lapply(X = strsplit(descr10, split = " "), FUN = function(x) {"tote" %in% x})
+
+foundations_tote <- c(which(unlist(totes)), 
+                      which(unlist(Tote)), 
+                      which(unlist(tote)))
+
+tote_merch <- table_filter(x = venmo$Description,
+                           y = foundations_tote,
+                           z = descr10)
+
+venmo$Description[tote_merch] <- "Foundations Tote Merch"
+```
+
+```{r 85}
+descr11 <- names(table(venmo$Description))
+
+ef <- lapply(X = strsplit(descr11, split = " "), FUN = function(x) {"85" %in% x})
+
+efC <- lapply(X = strsplit(descr11, split = " "), FUN = function(x) {"85C" %in% x})
+
+efd <- lapply(X = strsplit(descr11, split = " "), FUN = function(x) {"85°" %in% x})
+
+Berry <- lapply(X = strsplit(descr11, split = " "), FUN = function(x) {"Berry" %in% x})
+
+berrytale <- lapply(X = strsplit(descr11, split = " "), FUN = function(x) {"berrytale" %in% x})
+
+Bread <- lapply(X = strsplit(descr11, split = " "), FUN = function(x) {"Bread" %in% x})
+
+BREAD <- lapply(X = strsplit(descr11, split = " "), FUN = function(x) {"BREAD" %in% x})
+
+Bread_ <- lapply(X = strsplit(descr11, split = " "), FUN = function(x) {"Bread-Jono" %in% x})
+
+breadl <- lapply(X = strsplit(descr11, split = " "), FUN = function(x) {"bread!" %in% x})
+
+breadll <- lapply(X = strsplit(descr11, split = " "), FUN = function(x) {"bread!!!!" %in% x})
+
+breadddd <- lapply(X = strsplit(descr11, split = " "), FUN = function(x) {"breaddddddd" %in% x})
+
+breads <- lapply(X = strsplit(descr11, split = " "), FUN = function(x) {"breads" %in% x})
+
+bred <- lapply(X = strsplit(descr11, split = " "), FUN = function(x) {"bred" %in% x})
+
+brioche <- lapply(X = strsplit(descr11, split = " "), FUN = function(x) {"brioche" %in% x})
+
+choco <- lapply(X = strsplit(descr11, split = " "), FUN = function(x) {"choco" %in% x})
+
+crossaint <- lapply(X = strsplit(descr11, split = " "), FUN = function(x) {"crossaint" %in% x})
+
+taro <- lapply(X = strsplit(descr11, split = " "), FUN = function(x) {"taro" %in% x})
+
+milk <- lapply(X = strsplit(descr11, split = " "), FUN = function(x) {"milk" %in% x})
+
+Taro <- lapply(X = strsplit(descr11, split = " "), FUN = function(x) {"Taro" %in% x})
+
+Tarooo <- lapply(X = strsplit(descr11, split = " "), FUN = function(x) {"Tarooooo" %in% x})
+
+bread <- lapply(X = strsplit(descr11, split = " "), FUN = function(x) {"bread" %in% x})
+
+Breaddddddd <- lapply(X = strsplit(descr11, split = " "), FUN = function(x) {"Breaddddddd" %in% x})
+
+foundations_85 <- c(which(unlist(ef)),
+                    which(unlist(efC)),
+                    which(unlist(efd)),
+                    which(unlist(Berry)),
+                    which(unlist(berrytale)),
+                    which(unlist(Bread)),
+                    which(unlist(BREAD)),
+                    which(unlist(Bread_)),
+                    which(unlist(breadl)),
+                    which(unlist(breadll)),
+                    which(unlist(breadddd)),
+                    which(unlist(breads)),
+                    which(unlist(bred)),
+                    which(unlist(brioche)),
+                    which(unlist(choco)),
+                    which(unlist(crossaint)),
+                    which(unlist(taro)),
+                    which(unlist(milk)),
+                    which(unlist(Taro)),
+                    which(unlist(Tarooo)),
+                    which(unlist(bread)),
+                    which(unlist(Breaddddddd)))
+
+degrees_85 <- table_filter(x = venmo$Description,
+                           y = foundations_85,
+                           z = descr11)
+
+venmo$Description[degrees_85] <- "85 Degrees Fundraiser"
+```
+
+```{r Retreat Dues}
+descr12 <- names(table(venmo$Description))
+
+retreat <- lapply(X = strsplit(descr12, split = " "), FUN = function(x) {"retreat" %in% x})
+
+retreatl <- lapply(X = strsplit(descr12, split = " "), FUN = function(x) {"retreat!" %in% x})
+
+Retreat <- lapply(X = strsplit(descr12, split = " "), FUN = function(x) {"Retreat" %in% x})
+
+chaos <- lapply(X = strsplit(descr12, split = " "), FUN = function(x) {"chaos" %in% x})
+
+Retreat_ <- lapply(X = strsplit(descr12, split = " "), FUN = function(x) {"Retreat:" %in% x})
+
+face <- lapply(X = strsplit(descr12, split = " "), FUN = function(x) {"face" %in% x})
+
+gloves <- lapply(X = strsplit(descr12, split = " "), FUN = function(x) {"gloves" %in% x})
+
+gas <- lapply(X = strsplit(descr12, split = " "), FUN = function(x) {"gas" %in% x})
+
+alc <- lapply(X = strsplit(descr12, split = " "), FUN = function(x) {"alcohol" %in% x})
+
+foundations_retreat <- c(which(unlist(retreat)),
+                          which(unlist(retreatl)),
+                          which(unlist(Retreat)),
+                          which(unlist(chaos)),
+                          which(unlist(Retreat_)),
+                          which(unlist(face)),
+                          which(unlist(gloves)),
+                          which(unlist(gas)),
+                          which(unlist(alc)))
+
+retreat_foundations <- table_filter(x = venmo$Description,
+                                    y = foundations_retreat,
+                                    z = descr12)
+
+venmo$Description[retreat_foundations] <- "Retreat Dues"
+
+venmo$Description[627] <- "Retreat Dues"
+```
+
+```{r Team Dues}
+descr13 <- names(table(venmo$Description))
+
+Photoshoot <- lapply(X = strsplit(descr13, split = " "), FUN = function(x) {"Photoshoot" %in% x})
+
+photoshoot <- lapply(X = strsplit(descr13, split = " "), FUN = function(x) {"photoshoot" %in% x})
+
+stipend <- lapply(X = strsplit(descr13, split = " "), FUN = function(x) {"stipend" %in% x})
+
+which(table_filter(x = venmo$Description,
+             y = c(which(unlist(Photoshoot)),
+                   which(unlist(photoshoot)),
+                   which(unlist(stipend))),
+             z = descr13))
+
+venmo$Description[c(378, 418, 514, 529, 703, 704, 778, 819)]
+```
+
+```{r}
+OOP <- lapply(X = strsplit(descr13, split = " "), FUN = function(x) {"OOP" %in% x})
+
+foundations_oop <- table_filter(x = venmo$Description,
+                                y = which(unlist(OOP)),
+                                z = descr13)
+
+venmo$Description[foundations_oop] <- "OOP Dues"
+```
+
+```{r}
+Dale <- lapply(X = strsplit(descr13, split = " "), FUN = function(x) {"Dále" %in% x})
+
+foundations_dale <- table_filter(x = venmo$Description,
+                                 y = which(unlist(Dale)),
+                                 z = descr13)
+
+venmo$Description[foundations_dale] <- "Dale Dues"
+venmo$Description[c(703, 819)] <- "Dale Dues"
+```
+
+```{r}
+DDR <- lapply(X = strsplit(descr13, split = " "), FUN = function(x) {"DDR" %in% x})
+
+ddr <- lapply(X = strsplit(descr13, split = " "), FUN = function(x) {"ddr" %in% x})
+
+foundations_ddr <- table_filter(x = venmo$Description,
+                                y = c(which(unlist(DDR)),
+                                      which(unlist(ddr))), 
+                                z = descr13)
+
+venmo$Description[foundations_ddr] <- "DDR Dues"
+```
+
+```{r}
+YUH <- lapply(X = strsplit(descr13, split = " "), FUN = function(x) {"YUH" %in% x})
+
+foundations_yuh <- table_filter(x = venmo$Description,
+                                y = which(unlist(YUH)),
+                                z = descr13)
+
+venmo$Description[foundations_yuh] <- "YUH Dues"
+
+venmo$Description[c(514, 529)] <- "YUH Dues"
+```
+
+
+```{r}
+DMV <- lapply(X = strsplit(descr13, split = " "), FUN = function(x) {"DMV" %in% x})
+
+foundations_DMV <- table_filter(x = venmo$Description,
+                                y = which(unlist(DMV)),
+                                z = descr13)
+
+venmo$Description[foundations_DMV] <- "DMV Dues"
+```
+
+```{r}
+Double <- lapply(X = strsplit(descr13, split = " "), FUN = function(x) {"Double" %in% x})
+
+foundations_Double <- table_filter(x = venmo$Description, 
+                                   y = which(unlist(Double)),
+                                   z = descr13)
+
+venmo$Description[foundations_Double] <- "Double Take Dues"
+
+
+which(venmo$Description == "SD card for spring photoshoot: payment of reimbursement request")
+
+venmo$Description[c(530, 704, 503)] <- "Double Take Dues"
+```
+
+```{r}
+`4G` <- lapply(X = strsplit(descr13, split = " "), FUN = function(x) {"4G" %in% x})
+
+foundations_4G <- table_filter(x = venmo$Description,
+                               y = which(unlist(`4G`)),
+                               z = descr13)
+
+venmo$Description[foundations_4G] <- "4G Dues"
+```
+
+```{r]}
+BOFA <- lapply(X = strsplit(descr13, split = " "), FUN = function(x) {"BOFA" %in% x})
+
+foundations_BOFA <- table_filter(x = venmo$Description,
+                                 y = which(unlist(BOFA)),
+                                 z = descr13)
+
+venmo$Description[foundations_BOFA] <- "BOFA Dues"
+
+venmo$Description[c(378, 418)] <- "BOFA Dues"
+```
+
+
+```{r}
+down <- lapply(X = strsplit(descr13, split = " "), FUN = function(x) {"down" %in% x})
+
+foundations_down <- table_filter(x = venmo$Description,
+                                 y = which(unlist(down)),
+                                 z = descr13)
+
+venmo$Description[foundations_down] <- "Down Bad Dues"
+
+which(venmo$Description == "To pay for reimbursement of tshirts")
+
+venmo$Description[67] <- "Down Bad Dues"
+```
+
+```{r Banquet}
+descr14 <- names(table(venmo$Description))
+
+banquet <- lapply(X = strsplit(descr14, split = " "), FUN = function(x) {"banquet" %in% x})
+
+bags <- lapply(X = strsplit(descr14, split = " "), FUN = function(x) {"bags" %in% x})
+
+gifts <- lapply(X = strsplit(descr14, split = " "), FUN = function(x) {"gifts" %in% x})
+
+balloons <- lapply(X = strsplit(descr14, split = " "), FUN = function(x) {"balloons" %in% x})
+
+banquet_fees <- c(which(unlist(banquet)),
+                  which(unlist(bags)),
+                  which(unlist(gifts)),
+                  which(unlist(balloons)))
+
+foundations_banquet <- table_filter(x = venmo$Description,
+                                    y = banquet_fees,
+                                    z = descr14)
+
+venmo$Description[foundations_banquet] <- "Banquet Fees"
+```
+
+```{r reimbursements}
+descr15 <- names(table(venmo$Description))
+
+reimbursement <- lapply(X = strsplit(descr15, split = " "), FUN = function(x) {"reimbursement" %in% x})
+
+reimbursements <- lapply(X = strsplit(descr15, split = " "), FUN = function(x) {"reimbursements" %in% x})
+
+Reimbursement <- lapply(X = strsplit(descr15, split = " "), FUN = function(x) {"Reimbursement" %in% x})
+
+Reimbursements <- lapply(X = strsplit(descr15, split = " "), FUN = function(x) {"Reimbursements" %in% x})
+
+staples <- lapply(X = strsplit(descr15, split = " "), FUN = function(x) {"staples" %in% x})
+
+payment <- lapply(X = strsplit(descr15, split = " "), FUN = function(x) {"payment" %in% x})
+
+reimburse <- c(which(unlist(reimbursement)),
+              which(unlist(reimbursements)),
+              which(unlist(Reimbursement)),
+              which(unlist(Reimbursements)),
+              which(unlist(staples)),
+              which(unlist(payment)))
+
+foundations_reimbursement <- table_filter(x = venmo$Description,
+                                          y = reimburse,
+                                          z = descr15)
+
+venmo$Description[foundations_reimbursement] <- "Reimbursement"
+
+venmo$Description[which(venmo$To == "Anthony Vibal")] <- "Wintensive Choregrapher"
+
+venmo$Description[which(venmo$To == "Matthew Sabino")] <- "Wintensive Choregrapher"
+```
+
+```{r fixing rose fundraisers}
+which(venmo$Description == "🌹")
+
+venmo$Description[which(venmo$Description == "🌹")] <- "Rose Fundraiser"
+
+venmo$Description[which(venmo$Description == "🌹 again")] <- "Rose Fundraiser"
+
+venmo$Description[which(venmo$Description == "🌹 for Christy")] <- "Rose Fundraiser"
+
+venmo$Description[which(venmo$Description == "🌹🌹")] <- "Rose Fundraiser"
+
+venmo$Description[which(venmo$Description == "🌼")] <- "Rose Fundraiser"
+
+which(venmo$Description == "💐")
+
+venmo$Description[112] <- "Rose Fundraiser"
+
+which(venmo$Description == "💐💐")
+
+venmo$Description[369] <- "Rose Fundraiser"
+
+venmo$Description[which(venmo$Description == "1 🌹- Michael du")] <- "Rose Fundraiser"
+
+venmo$Description[which(venmo$Description == "another 🌹")] <- "Rose Fundraiser"
+
+# r fixing 85 fundraiser
+venmo$Description[which(venmo$Description == "🍞")] <- "85 Degrees Fundraiser"
+
+which(venmo$Description == "That Bia girl should be executive 🤠")
+
+venmo$Description[480] <- "85 Degrees Fundraiser"
+
+# r fixing Kripsy Kreme
+venmo$Description[which(venmo$Description == "kiertan 🍩")] <- "Krispy Kreme Fundraiser"
+
+venmo$Description[which(venmo$Description == "🍩")] <- "Krispy Kreme Fundraiser"
+
+which(venmo$Description == "❤️")
+
+venmo$Description[20] <- "Krispy Kreme Fundraiser"
+
+# r fixing Teaspoon
+venmo$Description[which(venmo$Description == "🍵 🥄 two drinks total")] <- "Teaspoon Fundraiser"
+
+venmo$Description[which(venmo$Description == "🧋")] <- "Teaspoon Fundraiser"
+
+# r fixing wintensive merch
+which(venmo$Description == "🎽")
+
+venmo$Description[280] <- "Wintensive Merch"
+
+which(venmo$Description == "👕")
+
+venmo$Description[c(248, 251, 270, 289)] <- "Wintensive Merch"
+
+which(venmo$Description == "🤠🤠🤠")
+
+venmo$Description[267] <- "Wintensive Merch"
+
+venmo$Description[which(venmo$Description == "hey priscilla😘 (wintensive shirt)")] <- "Wintensive Merch"
+
+which(venmo$Description == "⛄") 
+
+venmo$Description[265] <- "Wintensive Merch"
+
+which(venmo$Description == "⛄ 👕") 
+
+venmo$Description[264] <- "Wintensive Merch"
+
+# r fixing pie fundraiser
+which(venmo$Description == "🥚")
+
+venmo$Description[351] <- "Pie Fundraiser"
+
+which(venmo$Description == "🥧")
+
+venmo$Description[which(venmo$Description == "🥧")] <- "Pie Fundraiser"
+
+venmo$Description[which(venmo$Description == "🥧 (from cindy wang)")] <- "Pie Fundraiser"
+
+venmo$Description[which(venmo$Description == "🥧 sachi gill hehe")] <- "Pie Fundraiser"
+
+venmo$Description[which(venmo$Description == "🥧 x 2")] <- "Pie Fundraiser"
+
+venmo$Description[which(venmo$Description == "🥧 (for cindy wang again)")] <- "Pie Fundraiser"
+
+# r fixing team dues
+venmo$Description[which(venmo$Description == "Another kiddo!! 🤟🏼")] <- "YUH Dues"
+
+venmo$Description[which(venmo$Description == "down bad dues")] <- "Down Bad Dues"
+
+# r fixing foundations shirt merch
+venmo$Description[which(venmo$Description == "FOUNDATIONS 👕")] <- "Foundations Shirt Merch"
+
+# r fixing Campc FC and sparktrendz
+which(venmo$Description == "💵🔙  refund")
+
+which(venmo$Description == "Gift 🎁")
+
+venmo$Description[581] <- "CAMP FC GEAR"
+
+venmo$Description[574] <- "CAMP FC GEAR"
+```
+
+```{r}
+venmo$Description[101] <- "Sparktrendz Payment"
+```
+
+```{r fixing things 1}
+which(venmo$Description == "69 + 16")
+
+venmo$Description[482] <- "Rose Fundraiser"
+
+which(venmo$Description == "Alex Nguyen to Lin Fang Yang")
+
+venmo$Description[153] <- "Valentines Gram Fundraiser"
+
+which(venmo$Description == "Aliahnna Dominique Daling")
+
+venmo$Description[166:228] <- "Valentines Gram Fundraiser"
+
+which(venmo$Description == "Annika")
+
+venmo$Description[85:89] <- "Pie Fundraiser"
+
+which(venmo$Description == "Zhaode’s pie!!!!")
+
+venmo$Description[305] <- "Pie Fundraiser"
+
+which(venmo$Description == "yummy")
+
+venmo$Description[666] <- "Pie Fundraiser"
+
+which(venmo$Description == "Yahairaaaa")
+
+venmo$Description[808] <- "Rose Fundraiser"
+
+which(venmo$Description == "Woow toot")
+
+venmo$Description[399] <- "Rose Fundraiser"
+
+which(venmo$Description == "The Council of Josh has been targetted")
+
+venmo$Description[629] <- "Pie Fundraiser"
+
+which(venmo$Description == "Thanks")
+
+venmo$Description[15] <- "Krispy Kreme Fundraiser"
+
+which(venmo$Description == "table")
+
+venmo$Description[421] <- "Reimbursement"
+```
+
+```{r fixing things 2}
+which(venmo$Description == "Ashley-Zhu-5")
+
+venmo$Description[328] <- "Pie Fundraiser"
+
+which(venmo$Description == "BOFA PAYMENT: 27 confirmed paid members")
+
+venmo$Description[146] <- "BOFA Dues"
+
+which(venmo$Description == "Brian He -4G")
+
+venmo$Description[578] <- "Teaspoon Fundraiser"
+
+venmo$Description[which(venmo$Description == "Camp FC LSHIP set gear\n(33 PC78H Hoodie)")] <- "CAMP FC GEAR"
+
+venmo$Description[which(venmo$Description == "Camp FC LSHIP set gear (2 PC78H Hoodie)")] <- "CAMP FC GEAR"
+
+which(venmo$Description == "deezy")
+
+venmo$Description[250] <- "Wintensive Merch"
+
+which(venmo$Description == "FC General Member Shirts")
+
+venmo$Description[533] <- "Foundations Shirts Merch"
+
+which(venmo$Description == "Fc showcase merch/roses")
+
+venmo$Description[134] <- "Rose Fundraiser"
+
+which(venmo$Description == "Felix")
+
+venmo$Description[330:331] <- "Pie Fundraiser"
+
+which(venmo$Description == "For BOFA gear material reimbursement, using the $30 stipend")
+
+venmo$Description[378] <- "BOFA Dues"
+
+which(venmo$Description == "For Jill")
+
+venmo$Description[701] <- "Rose Fundraiser"
+
+which(venmo$Description == "Foudnarionsssssss")
+
+venmo$Description[291] <- "Wintensive Merch"
+
+which(venmo$Description == "Foundations Shirt Merch")
+
+venmo$Description[811] <- "Foundations Shirts Merch"
+
+which(venmo$Description == "Fundraiser")
+
+venmo$Description[496] <- "85 Degrees Fundraiser"
+
+which(venmo$Description == "Go Choreo!!!")
+
+venmo$Description[2] <- "Krispy Kreme Fundraiser"
+```
+
+```{r fixing things 3}
+which(venmo$Description == "I love u priscilla")
+
+venmo$Description[271:272] <- "Wintensive Merch"
+
+which(venmo$Description == "Jonathan Hui Batch 1\nDoyeun 9\nHelen 9\nHamlin 13\nJessie 4\nOyku 4\nCameron 4\nJack 4\nMaggie 4\nAndrew 4\nSean 4\nEddie 4\nZhuang 4")
+
+venmo$Description[737] <- "Rose Fundraiser"
+
+which(venmo$Description == "Merch")
+
+venmo$Description[132] <- "Foundations Sticker Merch"
+
+which(venmo$Description == "more yum")
+
+venmo$Description[669] <- "Pie Fundraiser"
+
+which(venmo$Description == "showcase!")
+
+venmo$Description[385] <- "Foundations Sticker Merch"
+
+which(venmo$Description == "Paid internship")
+
+venmo$Description[254] <- "Foundations Shirts Merch"
+
+which(venmo$Description == "piepiepiepiepiepiepie")
+
+venmo$Description[78] <- "Pie Fundraiser"
+
+which(venmo$Description == "priscilla tang")
+
+venmo$Description[118] <- "Rose Fundraiser"
+
+which(venmo$Description == "RE :magic_wand::skull_pop: TREAT")
+
+which(venmo$Description == "Shorts")
+
+venmo$Description[281] <- "Wintensive Merch"
+
+venmo <- venmo[-which(venmo$Description == ""), ]
+
+venmo$Description[778] <- "4G Dues"
+
+venmo$Description[522] <- "4G Dues"
+```
+
+```{r creating foundations_venmo}
+negative <- which(unlist(lapply(
+  X = strsplit(venmo$Amount, split = " "), 
+  FUN = function(x) {"-" %in% x})))
+
+chr_amount <- substr(venmo$Amount, start = 4, stop = 10)
+
+venmo$Amount <- as.numeric(gsub(",", "", chr_amount))
+
+venmo$Amount[negative] <- venmo$Amount[negative] * -1
+
+foundations_venmo <- venmo
+# create a new table to do stuff on it so we can save it
+```
+
+```{r}
+Square_pie <- which(unlist(lapply(
+  X = strsplit(venmo$Description, split = " "), 
+  FUN = function(x) {"Square" %in% x})))
+
+rose_pie <- which(unlist(lapply(
+  X = strsplit(venmo$Description, split = " "), 
+  FUN = function(x) {"Rose" %in% x})))
+
+valentines_pie <- which(unlist(lapply(
+  X = strsplit(venmo$Description, split = " "), 
+  FUN = function(x) {"Valentines" %in% x})))
+
+pie_pie <- which(unlist(lapply(
+  X = strsplit(venmo$Description, split = " "), 
+  FUN = function(x) {"Pie" %in% x})))
+
+foundations_venmo$Category[c(Square_pie, rose_pie,
+                             valentines_pie, pie_pie)] <- "Fundraiser"
+
+```
+
+```{r Merch}
+Merch_pie <- which(unlist(lapply(
+  X = strsplit(venmo$Description, split = " "), 
+  FUN = function(x) {"Merch" %in% x})))
+
+foundations_venmo$Category[Merch_pie] <- "Merch"
+```
+
+```{r LSHIP and team dues}
+Dues_pie <- which(unlist(lapply(
+  X = strsplit(venmo$Description, split = " "), 
+  FUN = function(x) {"Dues" %in% x})))
+
+LSHIP_Jackets_pie <- which(unlist(lapply(
+  X = strsplit(venmo$Description, split = " "), 
+  FUN = function(x) {"Jackets" %in% x})))
+
+GEAR_pie <- which(unlist(lapply(
+  X = strsplit(venmo$Description, split = " "), 
+  FUN = function(x) {"GEAR" %in% x})))
+
+foundations_venmo$Category[c(Dues_pie, LSHIP_Jackets_pie, GEAR_pie)] <- "LSHIP & Team Dues"
+```
+
+```{r Fees}
+Reimburse_pie <- which(unlist(lapply(
+  X = strsplit(venmo$Description, split = " "), 
+  FUN = function(x) {"Reimbursement" %in% x})))
+
+Fees <- which(unlist(lapply(
+  X = strsplit(venmo$Description, split = " "), 
+  FUN = function(x) {"Fees" %in% x})))
+
+Payments <- which(unlist(lapply(
+  X = strsplit(venmo$Description, split = " "), 
+  FUN = function(x) {"Payment" %in% x})))
+
+foundations_venmo$Category[c(Reimburse_pie, Fees, Payments)] <- "Payments"
+```
+
+```{r}
+wintensive_pie <- which(unlist(lapply(
+  X = strsplit(venmo$Description, split = " "), 
+  FUN = function(x) {"Choregrapher" %in% x})))
+
+foundations_venmo$Category[wintensive_pie] <- "Wintensive Payment"
+```
+
+```{r Fundraisers}
+krispy_pie <- which(unlist(lapply(
+  X = strsplit(venmo$Description, split = " "), 
+  FUN = function(x) {"Krispy" %in% x})))
+
+degrees_pie <- which(unlist(lapply(
+  X = strsplit(venmo$Description, split = " "), 
+  FUN = function(x) {"Degrees" %in% x})))
+
+teaspoon_pie <- which(unlist(lapply(
+  X = strsplit(venmo$Description, split = " "), 
+  FUN = function(x) {"Teaspoon" %in% x})))
+
+foundations_venmo$Category[c(krispy_pie, degrees_pie, teaspoon_pie)] <- "Food Fundraiser"
+```
+
+```{r}
+foundations_venmo$Description <- as.factor(foundations_venmo$Description)
+
+foundations_venmo$Category <- as.factor(foundations_venmo$Category)
+```
+
+```{r}
+save(old_venmo, venmo, foundations_venmo, file = "Project.Foundations")
+```
+
