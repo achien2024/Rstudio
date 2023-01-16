@@ -1,0 +1,1 @@
+Hello, in this project done in R studio, I take three stocks and analyze their behavior in order to try to forecast future values and investments using time series. The link can be found [here](https://rpubs.com/Aaron_Chien/918946).
